@@ -27,6 +27,9 @@ RUN jar tf build/libs/*.jar | grep -q "application.conf" \
     && echo "✅ application.conf is present in the JAR" \
     || (echo "❌ ERROR: application.conf not found in JAR" && exit 1)
 
+RUN ls -lh build/libs && jar tf build/libs/*.jar | grep application.conf
+
+
 # Stage 3: Create the Runtime Image
 FROM openjdk:21 AS runtime
 EXPOSE 8080
