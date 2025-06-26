@@ -14,13 +14,11 @@ COPY . /usr/src/app/
 WORKDIR /usr/src/app
 COPY --chown=gradle:gradle . /home/gradle/src
 WORKDIR /home/gradle/src
-# Build the fat JAR, Gradle also supports shadow
-# and boot JAR by default.
 RUN gradle buildFatJar --no-daemon
 
 # Stage 3: Create the Runtime Image
 FROM openjdk:21 AS runtime
 EXPOSE 8080
 RUN mkdir /app
-COPY --from=build /home/gradle/src/build/libs/*.jar /app/anop-all.jar
-ENTRYPOINT ["java","-jar","/app/anop-all.jar"]
+COPY --from=build /home/gradle/src/build/libs/*.jar /app/anop.jar
+ENTRYPOINT ["java","-jar","/app/anop.jar"]
