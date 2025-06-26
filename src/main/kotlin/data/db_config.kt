@@ -9,7 +9,7 @@ import org.jetbrains.exposed.sql.Database
 object DatabaseFactory {
     fun init() {
         val hikari = HikariConfig().apply {
-            jdbcUrl = "jdbc:postgresql://dpg-d1efn6ali9vc73a0o7n0-a/anop_test_db"
+            jdbcUrl = "jdbc:postgresql://dpg-d1efn6ali9vc73a0o7n0-a:5432/anop_test_db"
             driverClassName = "org.postgresql.Driver"
             username = "anop_test_db_user"
             password = "anop_test_db_user"
