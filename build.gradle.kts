@@ -10,17 +10,14 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.ktor)
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.20"
+    id("com.gradleup.shadow") version "8.3.1"
 }
 
 group = "com.example"
 version = "0.0.1"
 
 application {
-//    mainClass = "io.ktor.server.netty.EngineMain"
     mainClass.set("com.example.ApplicationKt")
-
-//    val isDevelopment: Boolean = project.ext.has("development")
-//    applicationDefaultJvmArgs = listOf("-Dio.ktor.development=true")
 }
 
 repositories {
@@ -48,4 +45,5 @@ dependencies {
     implementation("com.sun.mail:jakarta.mail:2.0.1")
     implementation("com.sun.activation:jakarta.activation:2.0.1")
     implementation("org.jetbrains.exposed:exposed-jodatime:0.61.0")
+
 }

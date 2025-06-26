@@ -21,6 +21,6 @@ fun Application.module() {
     }
 
     install(WebSockets)
-    DatabaseFactory.init()
+//    DatabaseFactory.init()
     internalRoute()
 }
