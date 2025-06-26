@@ -17,7 +17,7 @@ WORKDIR /home/gradle/src
 
 
 # Stage 3: Create the Runtime Image
-FROM openjdk:24 AS runtime
+FROM openjdk:21 AS runtime
 EXPOSE 8080
 RUN mkdir /app
 COPY --from=build /home/gradle/src/build/libs/*.jar /app/anop.jar
