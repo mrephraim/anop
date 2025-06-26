@@ -17,6 +17,7 @@ object DatabaseFactory {
             isAutoCommit = false
             transactionIsolation = "TRANSACTION_REPEATABLE_READ"
             validate()
+
         }
 
 
