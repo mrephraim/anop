@@ -16,10 +16,11 @@ group = "com.example"
 version = "0.0.1"
 
 application {
-    mainClass = "io.ktor.server.netty.EngineMain"
+//    mainClass = "io.ktor.server.netty.EngineMain"
+    mainClass.set("com.example.ApplicationKt")
 
 //    val isDevelopment: Boolean = project.ext.has("development")
-    applicationDefaultJvmArgs = listOf("-Dio.ktor.development=true")
+//    applicationDefaultJvmArgs = listOf("-Dio.ktor.development=true")
 }
 
 repositories {
