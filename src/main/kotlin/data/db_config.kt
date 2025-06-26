@@ -9,10 +9,10 @@ import org.jetbrains.exposed.sql.Database
 object DatabaseFactory {
     fun init() {
         val hikari = HikariConfig().apply {
-            jdbcUrl = "jdbc:postgresql://localhost:5432/anop-app-db"
+            jdbcUrl = "jdbc:postgresql://dpg-d1efn6ali9vc73a0o7n0-a/anop_test_db"
             driverClassName = "org.postgresql.Driver"
-            username = "postgres"
-            password = "12345678" // Change to your actual password
+            username = "anop_test_db_user"
+            password = "anop_test_db_user"
             maximumPoolSize = 10
             isAutoCommit = false
             transactionIsolation = "TRANSACTION_REPEATABLE_READ"
