@@ -10,6 +10,8 @@ RUN gradle clean build -i --stacktrace
 # Stage 2: Build Application and Verify JAR
 FROM gradle:latest AS build
 COPY --from=cache /home/gradle/cache_home /home/gradle/.gradle
+COPY . /usr/src/app/
+WORKDIR /usr/src/app
 COPY --chown=gradle:gradle . /home/gradle/src
 WORKDIR /home/gradle/src
 
