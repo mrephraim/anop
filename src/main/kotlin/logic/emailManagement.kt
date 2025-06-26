@@ -14,8 +14,10 @@ fun loadConfig(): ApplicationConfig {
 }
 
 fun loadEmailTemplate(templateName: String, replacements: Map<String, String>): String {
-    val filePath = "src/main/resources/templates/$templateName.html"
-    var template = File(filePath).readText(Charsets.UTF_8)
+    val resourcePath = "/templates/$templateName.html"
+    val stream = object {}.javaClass.getResourceAsStream(resourcePath)
+        ?: throw IllegalArgumentException("Template not found: $resourcePath")
+    var template = stream.bufferedReader(Charsets.UTF_8).readText()
 
     replacements.forEach { (key, value) ->
         template = template.replace("{{$key}}", value)
@@ -23,6 +25,7 @@ fun loadEmailTemplate(templateName: String, replacements: Map<String, String>): 
 
     return template
 }
+
 
 fun getEmailCredentials(): Pair<String, String> {
     val config = loadConfig()
