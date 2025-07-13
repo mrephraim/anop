@@ -128,6 +128,16 @@ fun Route.postRoutes(){
             call.respond(HttpStatusCode.OK, LikePostResponse("error", "Post already liked or failed"))
         }
     }
+    post("/unlikePost") {
+        val request = call.receive<LikePostRequest>()
+        val success = removePostLike(request.postId, request.userId)
+        if (success) {
+            call.respond(HttpStatusCode.OK, LikePostResponse("success", "Post unliked"))
+        } else {
+            call.respond(HttpStatusCode.OK, LikePostResponse("error", "Post was not liked"))
+        }
+    }
+
 
     post("/quote-repost") {
         val request = try {
@@ -144,6 +154,27 @@ fun Route.postRoutes(){
             call.respond(HttpStatusCode.OK, QuoteRepostResponse("exists", "You already quote-reposted this post"))
         }
     }
+    post("/repostPost") {
+        val request = call.receive<QuoteRepostRequest>()
+        val success = saveQuoteRepost(request.userId, request.postId, null)
+        if (success) {
+            call.respond(HttpStatusCode.OK, QuoteRepostResponse("success", "Post reposted"))
+        } else {
+            call.respond(HttpStatusCode.OK, QuoteRepostResponse("exists", "Already reposted"))
+        }
+    }
+
+    post("/removeRepost") {
+        val request = call.receive<QuoteRepostRequest>()
+        val success = removeRepost(request.userId, request.postId)
+        if (success) {
+            call.respond(HttpStatusCode.OK, QuoteRepostResponse("success", "Repost removed"))
+        } else {
+            call.respond(HttpStatusCode.OK, QuoteRepostResponse("error", "Repost not found"))
+        }
+    }
+
+
 
     post("/addView") {
         val request = try {

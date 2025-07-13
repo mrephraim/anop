@@ -4,6 +4,7 @@ import com.example.data.classes_daos.*
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNull
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 
@@ -129,6 +130,31 @@ fun addPostLike(postId: Int, userId: Int): Boolean {
         e.printStackTrace()
         false
     }
+}
+
+fun removePostLike(postId: Int, userId: Int): Boolean = try {
+    transaction {
+        val deleted = PostLikes.deleteWhere {
+            (PostLikes.postId eq postId) and (PostLikes.userId eq userId)
+        }
+        deleted > 0
+    }
+} catch (e: Exception) {
+    e.printStackTrace()
+    false
+}
+
+
+fun removeRepost(userId: Int, postId: Int): Boolean = try {
+    transaction {
+        val deleted = PostReposts.deleteWhere {
+            (PostReposts.userId eq userId) and (originalPostId eq postId) and (comment.isNull())
+        }
+        deleted > 0
+    }
+} catch (e: Exception) {
+    e.printStackTrace()
+    false
 }
 
 
