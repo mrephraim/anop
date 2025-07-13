@@ -127,7 +127,7 @@ fun getUserProfileDetails(userId: Int): UserProfileResult? {
 
         if (userInitials != null && basicProfile != null) {
             val filePath = profilePicture?.get(ProfilePictures.filePath)
-            val absoluteFilePath = "http://10.0.2.2:8080/profile-picture/${filePath}"
+            val absoluteFilePath = "https://grub-hardy-actively.ngrok-free.app/profile-picture/${filePath}"
             UserProfileResult(
                 firstName = basicProfile[BasicProfile.firstName],
                 lastName = basicProfile[BasicProfile.lastName],
@@ -160,7 +160,7 @@ fun getUserProfileDetails2(userId: Int): UserProfileResult2? {
 
         if (userInitials != null && basicProfile != null) {
             val filePath = profilePicture?.get(ProfilePictures.filePath)
-            val absoluteFilePath = "http://10.0.2.2:8080/profile-picture/${filePath}"
+            val absoluteFilePath = "https://grub-hardy-actively.ngrok-free.app/profile-picture/${filePath}"
             UserProfileResult2(
                 firstName = basicProfile[BasicProfile.firstName],
                 lastName = basicProfile[BasicProfile.lastName],
@@ -191,7 +191,7 @@ fun getUserBasicProfile(userId: Int): BasicProfileResponse? = transaction {
         BasicProfileResponse(
             userId = userId,
             username = "${row[BasicProfile.firstName]} ${row[BasicProfile.lastName]}",
-            profilePicturePath = "http://10.0.2.2:8080/profile-picture/${profilePicturePath}"
+            profilePicturePath = "https://grub-hardy-actively.ngrok-free.app/profile-picture/${profilePicturePath}"
         )
     }
 }

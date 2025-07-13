@@ -23,7 +23,7 @@ fun createCommunity(
 
     CreateCommunityResponse(
         communityId = communityId,
-        profilePicturePath = "http://10.0.2.2:8080/community_profile_photo/${profilePicPath}",
+        profilePicturePath = "https://grub-hardy-actively.ngrok-free.app/community_profile_photo/${profilePicPath}",
         communityName = request.name,
         status = "success"
     )
@@ -216,7 +216,7 @@ fun getCommunitiesCreatedByUser(userId: Int): List<CommunityInfo3> = transaction
                 id = it[Communities.id],
                 name = it[Communities.name],
                 description = it[Communities.description],
-                profilePicturePath = "http://10.0.2.2:8080/community_profile_photo/${it[Communities.profilePicturePath]}"
+                profilePicturePath = "https://grub-hardy-actively.ngrok-free.app/community_profile_photo/${it[Communities.profilePicturePath]}"
             )
         }
 }
@@ -277,8 +277,8 @@ fun getAllUserCommunities(userId: Int): List<CommunityInfo2> = transaction {
                 membershipType = it[Communities.membershipType],
                 membershipStatus = 0,
                 categoryTag = categoryTag,
-                profilePicturePath = "http://10.0.2.2:8080/community_profile_photo/${it[Communities.profilePicturePath]}",
-                coverPhotoPath = "http://10.0.2.2:8080/community_cover_photo/${it[Communities.coverPhotoPath]}",
+                profilePicturePath = "https://grub-hardy-actively.ngrok-free.app/community_profile_photo/${it[Communities.profilePicturePath]}",
+                coverPhotoPath = "https://grub-hardy-actively.ngrok-free.app/community_cover_photo/${it[Communities.coverPhotoPath]}",
                 createdAt = it[Communities.createdAt].toString(),
                 creatorUserId = it[Communities.creatorUserId]
             )
@@ -311,8 +311,8 @@ fun getAllUserCommunities(userId: Int): List<CommunityInfo2> = transaction {
                         membershipType = it[Communities.membershipType],
                         membershipStatus = membershipStatus, // 👈 Pass user's actual membership status here
                         categoryTag = categoryTag,
-                        profilePicturePath = "http://10.0.2.2:8080/community_profile_photo/${it[Communities.profilePicturePath]}",
-                        coverPhotoPath = "http://10.0.2.2:8080/community_cover_photo/${it[Communities.coverPhotoPath]}",
+                        profilePicturePath = "https://grub-hardy-actively.ngrok-free.app/community_profile_photo/${it[Communities.profilePicturePath]}",
+                        coverPhotoPath = "https://grub-hardy-actively.ngrok-free.app/community_cover_photo/${it[Communities.coverPhotoPath]}",
                         createdAt = it[Communities.createdAt].toString(),
                         creatorUserId = it[Communities.creatorUserId]
                     )
@@ -415,8 +415,8 @@ fun getCommunityInfoById(communityId: Int): CommunityInfo? = transaction {
                 description = row[Communities.description],
                 membershipType = row[Communities.membershipType],
                 categoryTags = Json.decodeFromString<List<Int>>(row[Communities.category_tags]),
-                profilePicturePath = "http://10.0.2.2:8080/community_profile_photo/${row[Communities.profilePicturePath]}",
-                coverPhotoPath = "http://10.0.2.2:8080/community_cover_photo/${row[Communities.coverPhotoPath]}",
+                profilePicturePath = "https://grub-hardy-actively.ngrok-free.app/community_profile_photo/${row[Communities.profilePicturePath]}",
+                coverPhotoPath = "https://grub-hardy-actively.ngrok-free.app/community_cover_photo/${row[Communities.coverPhotoPath]}",
                 createdAt = row[Communities.createdAt].toString()
             )
         }

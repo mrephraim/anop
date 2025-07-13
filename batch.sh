@@ -513,60 +513,107 @@
 #!/bin/bash
 
 # === Configuration ===
-BASE_URL="http://localhost:8080"
-SET_PROFILE_ENDPOINT="$BASE_URL/set_basic_profile"
-UPLOAD_PICTURE_ENDPOINT="$BASE_URL/upload_profile_picture"
+#BASE_URL="http://localhost:8080"
+#SET_PROFILE_ENDPOINT="$BASE_URL/set_basic_profile"
+#UPLOAD_PICTURE_ENDPOINT="$BASE_URL/upload_profile_picture"
+#
+#MEDIA_DIR="$HOME/Downloads"
+#IMAGES=("a.jpg" "b.jpg" "d.jpg" "e.jpg" "f.jpg" "z.png" "p.png" "News.png" "freee.png")
+#
+## Sample profile info (you can randomize more fields if needed)
+#FIRST_NAMES=("Alex" "Jamie" "Chris" "Taylor" "Jordan" "Morgan" "Casey" "Riley" "Avery" "Parker")
+#LAST_NAMES=("Smith" "Johnson" "Williams" "Brown" "Jones" "Garcia" "Miller" "Davis" "Lopez" "Wilson")
+#USERNAMES=("alpha" "beta" "gamma" "delta" "omega" "nova" "zeus" "hera" "thor" "loki")
+#BIO="This is a sample short bio"
+#ABOUT="This is a sample about section"
+#GENDER="MALE" # or FEMALE
+#
+## === Loop over user IDs ===
+#for ((userId=83; userId<=102; userId++)); do
+#    echo "👉 Setting up profile for user ID: $userId"
+#
+#    # Pick random names and usernames
+#    firstName=${FIRST_NAMES[$RANDOM % ${#FIRST_NAMES[@]}]}
+#    lastName=${LAST_NAMES[$RANDOM % ${#LAST_NAMES[@]}]}
+#    username="${USERNAMES[$RANDOM % ${#USERNAMES[@]}]}$userId" # Unique username
+#
+#    # --- 1. Set Basic Profile ---
+#    echo "📤 Sending basic profile request..."
+#    curl -s -X POST "$SET_PROFILE_ENDPOINT" \
+#        -H "Content-Type: application/json" \
+#        -d '{
+#            "userId": '"$userId"',
+#            "firstName": "'"$firstName"'",
+#            "lastName": "'"$lastName"'",
+#            "username": "'"$username"'",
+#            "shortBio": "'"$BIO"'",
+#            "about": "'"$ABOUT"'",
+#            "gender": "'"$GENDER"'"
+#        }'
+#
+#    echo -e "\n✅ Basic profile set for user $userId"
+#
+#    # --- 2. Upload Profile Picture ---
+#    IMAGE_FILE="${IMAGES[$((userId % ${#IMAGES[@]}))]}"
+#    IMAGE_PATH="$MEDIA_DIR/$IMAGE_FILE"
+#
+#    if [ ! -f "$IMAGE_PATH" ]; then
+#        echo "⚠️  Image file not found: $IMAGE_PATH — skipping upload"
+#        continue
+#    fi
+#
+#    echo "📸 Uploading profile picture: $IMAGE_FILE"
+#    curl -s -X POST "$UPLOAD_PICTURE_ENDPOINT" \
+#        -F "userId=$userId" \
+#        -F "file=@$IMAGE_PATH"
+#
+#    echo -e "\n✅ Profile picture uploaded for user $userId"
+#    echo "---------------------------------------"
+#done
 
-MEDIA_DIR="$HOME/Downloads"
-IMAGES=("a.jpg" "b.jpg" "d.jpg" "e.jpg" "f.jpg" "z.png" "p.png" "News.png" "freee.png")
 
-# Sample profile info (you can randomize more fields if needed)
-FIRST_NAMES=("Alex" "Jamie" "Chris" "Taylor" "Jordan" "Morgan" "Casey" "Riley" "Avery" "Parker")
-LAST_NAMES=("Smith" "Johnson" "Williams" "Brown" "Jones" "Garcia" "Miller" "Davis" "Lopez" "Wilson")
-USERNAMES=("alpha" "beta" "gamma" "delta" "omega" "nova" "zeus" "hera" "thor" "loki")
-BIO="This is a sample short bio"
-ABOUT="This is a sample about section"
-GENDER="MALE" # or FEMALE
+#!/bin/bash
 
-# === Loop over user IDs ===
-for ((userId=83; userId<=102; userId++)); do
-    echo "👉 Setting up profile for user ID: $userId"
+#URL="https://anop.onrender.com/interests"
+#
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Technology", "relatedInterests": ["AI", "Software", "Gadgets"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Health", "relatedInterests": ["Fitness", "Nutrition", "Mental Health"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Finance", "relatedInterests": ["Investing", "Saving", "Budgeting"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Travel", "relatedInterests": ["Adventure", "Culture", "Destinations"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Education", "relatedInterests": ["Learning", "Teaching", "Courses"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Entrepreneurship", "relatedInterests": ["Startups", "Pitching", "Business"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Art", "relatedInterests": ["Painting", "Drawing", "Sculpture"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Music", "relatedInterests": ["Singing", "Instruments", "Composing"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Writing", "relatedInterests": ["Storytelling", "Poetry", "Editing"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Sports", "relatedInterests": ["Football", "Basketball", "Running"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Gaming", "relatedInterests": ["Esports", "Strategy", "Streaming"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Politics", "relatedInterests": ["Debates", "Policy", "Governance"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Science", "relatedInterests": ["Physics", "Biology", "Chemistry"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Fashion", "relatedInterests": ["Design", "Style", "Trends"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Photography", "relatedInterests": ["Portrait", "Landscape", "Editing"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Movies", "relatedInterests": ["Directing", "Acting", "Reviews"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Books", "relatedInterests": ["Fiction", "Non-fiction", "Reviews"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Cooking", "relatedInterests": ["Baking", "Recipes", "Healthy Eating"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Relationships", "relatedInterests": ["Dating", "Marriage", "Friendship"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Parenting", "relatedInterests": ["Kids", "Education", "Care"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Productivity", "relatedInterests": ["Time Management", "Goals", "Focus"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Mental Health", "relatedInterests": ["Therapy", "Mindfulness", "Self-care"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Nature", "relatedInterests": ["Forests", "Animals", "Hiking"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Religion", "relatedInterests": ["Christianity", "Islam", "Faith"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Career", "relatedInterests": ["Resumes", "Interviews", "Job Search"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Languages", "relatedInterests": ["English", "French", "Spanish"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Programming", "relatedInterests": ["Kotlin", "Python", "JavaScript"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "UI/UX Design", "relatedInterests": ["Wireframes", "Prototyping", "Research"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Blockchain", "relatedInterests": ["Web3", "Crypto", "DeFi"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Engineering", "relatedInterests": ["Mechanical", "Civil", "Electrical"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Machine Learning", "relatedInterests": ["NLP", "Vision", "Models"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Data Science", "relatedInterests": ["Analytics", "Statistics", "Big Data"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Volunteering", "relatedInterests": ["Charity", "Support", "Service"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "History", "relatedInterests": ["Ancient", "Medieval", "Modern"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Animals", "relatedInterests": ["Pets", "Wildlife", "Care"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Climate Change", "relatedInterests": ["Environment", "Sustainability", "Activism"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Marketing", "relatedInterests": ["SEO", "Content", "Branding"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Sales", "relatedInterests": ["Leads", "Funnels", "CRM"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Photography Editing", "relatedInterests": ["Lightroom", "Photoshop", "Color Grading"]}'
+#curl -X POST "$URL" -H "Content-Type: application/json" -d '{"interest": "Podcasts", "relatedInterests": ["Production", "Hosting", "Interviewing"]}'
 
-    # Pick random names and usernames
-    firstName=${FIRST_NAMES[$RANDOM % ${#FIRST_NAMES[@]}]}
-    lastName=${LAST_NAMES[$RANDOM % ${#LAST_NAMES[@]}]}
-    username="${USERNAMES[$RANDOM % ${#USERNAMES[@]}]}$userId" # Unique username
-
-    # --- 1. Set Basic Profile ---
-    echo "📤 Sending basic profile request..."
-    curl -s -X POST "$SET_PROFILE_ENDPOINT" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "userId": '"$userId"',
-            "firstName": "'"$firstName"'",
-            "lastName": "'"$lastName"'",
-            "username": "'"$username"'",
-            "shortBio": "'"$BIO"'",
-            "about": "'"$ABOUT"'",
-            "gender": "'"$GENDER"'"
-        }'
-
-    echo -e "\n✅ Basic profile set for user $userId"
-
-    # --- 2. Upload Profile Picture ---
-    IMAGE_FILE="${IMAGES[$((userId % ${#IMAGES[@]}))]}"
-    IMAGE_PATH="$MEDIA_DIR/$IMAGE_FILE"
-
-    if [ ! -f "$IMAGE_PATH" ]; then
-        echo "⚠️  Image file not found: $IMAGE_PATH — skipping upload"
-        continue
-    fi
-
-    echo "📸 Uploading profile picture: $IMAGE_FILE"
-    curl -s -X POST "$UPLOAD_PICTURE_ENDPOINT" \
-        -F "userId=$userId" \
-        -F "file=@$IMAGE_PATH"
-
-    echo -e "\n✅ Profile picture uploaded for user $userId"
-    echo "---------------------------------------"
-done

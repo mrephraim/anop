@@ -2,6 +2,8 @@ package com.example.data.classes_daos
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.kotlin.datetime.CurrentTimestamp
 import org.jetbrains.exposed.sql.kotlin.datetime.timestamp
@@ -36,9 +38,9 @@ data class ChatMessageResponse(
 data class ChatMessagePayload(
     val fromUserId: Int,
     val toUserId: Int,
-    val messageType: String, // TEXT or MEDIA
     val content: String,
-    val mediaPath: String? = null
+    val mediaPath: String? = null,
+    val messageType: String?
 )
 
 @Serializable
@@ -62,8 +64,27 @@ sealed class IncomingWebSocketMessage {
     data class Chat(val data: ChatMessagePayload) : IncomingWebSocketMessage()
 
     @Serializable @SerialName("status")
-    data class Status(val data: MessageStatusUpdate) : IncomingWebSocketMessage()
+    data class Status(val data: StatusPayload) : IncomingWebSocketMessage()
 
     @Serializable @SerialName("typing")
-    data class Typing(val data: TypingIndicator) : IncomingWebSocketMessage()
+    data class Typing(val data: TypingPayload) : IncomingWebSocketMessage()
 }
+val chatSerializersModule = SerializersModule {
+    polymorphic(IncomingWebSocketMessage::class) {
+        subclass(IncomingWebSocketMessage.Chat::class, IncomingWebSocketMessage.Chat.serializer())
+        subclass(IncomingWebSocketMessage.Status::class, IncomingWebSocketMessage.Status.serializer())
+        subclass(IncomingWebSocketMessage.Typing::class, IncomingWebSocketMessage.Typing.serializer())
+    }
+}
+
+
+@Serializable
+data class StatusPayload(
+    val messageId: Int,
+    val status: MessageStatus
+)
+
+@Serializable
+data class TypingPayload(
+    val toUserId: Int
+)

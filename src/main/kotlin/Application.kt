@@ -1,5 +1,6 @@
 package com.example
 
+import com.example.application.RedisChatSubscriber
 import com.example.application.internalRoute
 import com.example.data.DatabaseFactory
 import io.ktor.serialization.kotlinx.json.*

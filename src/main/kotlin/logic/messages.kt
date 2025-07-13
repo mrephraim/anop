@@ -1,11 +1,13 @@
 package com.example.logic
 
+import com.example.application.RedisChatSubscriber
+import com.example.application.RedisProvider
 import com.example.data.classes_daos.IncomingWebSocketMessage
 import com.example.data.classes_daos.MessageStatus
+import com.example.data.classes_daos.chatSerializersModule
 import com.example.data.db_operations.getAllMessagesForUser
 import com.example.data.db_operations.insertMessage
 import com.example.data.db_operations.updateMessageStatus
-import com.example.data.db_operations.updateOnlineStatus
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.request.*
@@ -14,50 +16,68 @@ import io.ktor.server.response.*
 import io.ktor.server.websocket.*
 import io.ktor.utils.io.*
 import io.ktor.websocket.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.file.Paths
 
-val userSessions = mutableMapOf<Int, DefaultWebSocketServerSession>()
+val activeSessions = mutableMapOf<Int, DefaultWebSocketServerSession>()
 
 fun Route.chatWebSocketRoute() {
     webSocket("/chat") {
-        val userIdParam = call.request.queryParameters["userId"] ?: return@webSocket close()
-        val userId = userIdParam.toIntOrNull() ?: return@webSocket close()
+        val userId = call.request.queryParameters["userId"]?.toIntOrNull() ?: return@webSocket close()
+        RedisChatSubscriber.subscribeToUserChannel(userId)
+        RedisProvider.commands.setex("user:$userId:online", 60, "1")
+        activeSessions[userId] = this
 
-        userSessions[userId] = this
-        updateOnlineStatus(userId, true)
+        val renewTTLJob = launch {
+            while (true) {
+                delay(30_000)
+                RedisProvider.commands.expire("user:$userId:online", 60)
+            }
+        }
 
         try {
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     val text = frame.readText()
-                    when (val parsed = Json.decodeFromString<IncomingWebSocketMessage>(text)) {
+                    val json = Json {
+                        serializersModule = chatSerializersModule
+                        ignoreUnknownKeys = true
+                        classDiscriminator = "type" // This is the key expected in JSON (e.g., "type": "chat")
+                    }
+
+                    val parsed = json.decodeFromString<IncomingWebSocketMessage>(text)
+
+                    when (parsed) {
                         is IncomingWebSocketMessage.Chat -> {
                             val msg = parsed.data
                             val messageId = insertMessage(msg)
 
-                            userSessions[msg.toUserId]?.let { receiverSession ->
-                                receiverSession.send(
-                                    Frame.Text(Json.encodeToString(IncomingWebSocketMessage.serializer(), IncomingWebSocketMessage.Chat(msg)))
-                                )
-                                updateMessageStatus(messageId, MessageStatus.DELIVERED)
-                            }
+
+                            val channel = "chat:user:${msg.toUserId}"
+                            val encoded = json.encodeToString(IncomingWebSocketMessage.serializer(), parsed)
+                            RedisProvider.commands.publish(channel, encoded)
+
+                            updateMessageStatus(messageId, MessageStatus.SENT)
                         }
+
                         is IncomingWebSocketMessage.Status -> {
                             updateMessageStatus(parsed.data.messageId, parsed.data.status)
                         }
+
                         is IncomingWebSocketMessage.Typing -> {
-                            userSessions[parsed.data.toUserId]?.send(
-                                Frame.Text(Json.encodeToString(parsed)) // ✅ This adds the required "type" discriminator
-                            )
+                            val channel = "chat:user:${parsed.data.toUserId}"
+                            RedisProvider.commands.publish(channel, Json.encodeToString(parsed))
                         }
                     }
                 }
             }
         } finally {
-            userSessions.remove(userId)
-            updateOnlineStatus(userId, false)
+            renewTTLJob.cancel()
+            RedisProvider.commands.del("user:$userId:online")
+            activeSessions.remove(userId)
         }
     }
 
@@ -136,5 +156,9 @@ fun Route.chatWebSocketRoute() {
         ))
     }
 
-
 }
+
+
+
+
+

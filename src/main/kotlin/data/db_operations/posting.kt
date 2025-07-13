@@ -47,7 +47,7 @@ fun savePost(
             }
 
             // Insert hashtags
-            textContent?.let {
+            textContent.let {
                 extractHashtags(it).forEach { tag ->
                     PostHashtags.insert {
                         it[PostHashtags.postId] = postId
@@ -99,7 +99,7 @@ fun matchCategories(text: String): List<Int> {
 fun getPostMetrics(postId: Int): PostMetricsResponse {
     return transaction {
         val likes = PostLikes.selectAll().where { PostLikes.postId eq postId }.count().toInt()
-        val comments = PostComments.selectAll().where { PostComments.postId eq postId }.count().toInt()
+        val comments = Posts.selectAll().where { Posts.reply_to eq postId }.count().toInt()
         val reposts = PostReposts.selectAll().where { PostReposts.originalPostId eq postId }.count().toInt()
         val views = PostViews.selectAll().where { PostViews.postId eq postId }.count().toInt()
         PostMetricsResponse(likes, comments, reposts, views)
@@ -118,7 +118,7 @@ fun addPostLike(postId: Int, userId: Int): Boolean {
                 PostLikes.insert {
                     it[PostLikes.postId] = postId
                     it[PostLikes.userId] = userId
-                    it[PostLikes.createdAt] = org.joda.time.DateTime.now()
+                    it[PostLikes.createdAt] = DateTime.now()
                 }
                 true
             } else {
@@ -132,15 +132,16 @@ fun addPostLike(postId: Int, userId: Int): Boolean {
 }
 
 
-fun addPostComment(postId: Int, userId: Int, commentText: String, parentCommentId: Int? = null): Boolean {
+fun addPostComment(postId: Int, userId: Int, commentText: String): Boolean {
     return try {
         transaction {
-            PostComments.insert {
-                it[PostComments.postId] = postId
-                it[PostComments.userId] = userId
-                it[PostComments.commentText] = commentText
-                it[PostComments.parentCommentId] = parentCommentId
-                it[createdAt] = org.joda.time.DateTime.now()
+            Posts.insert {
+                it[Posts.userId] = userId
+                it[textContent] = commentText
+                it[type] = 1
+                it[visibility] = 1
+                it[reply_to] = postId
+                it[createdAt] = DateTime.now()
             }
         }
         true
@@ -150,87 +151,6 @@ fun addPostComment(postId: Int, userId: Int, commentText: String, parentCommentI
     }
 }
 
-
-fun getCommentsByPost(postId: Int): List<CommentResponse> {
-    return transaction {
-        PostComments.selectAll().where { PostComments.postId eq postId }
-            .orderBy(PostComments.createdAt to SortOrder.ASC)
-            .map {
-                CommentResponse(
-                    commentId = it[PostComments.id],
-                    userId = it[PostComments.userId],
-                    commentText = it[PostComments.commentText],
-                    createdAt = it[PostComments.createdAt].toString("yyyy-MM-dd HH:mm:ss"),
-                    parentCommentId = it[PostComments.parentCommentId]
-                )
-            }
-    }
-}
-
-fun editComment(commentId: Int, userId: Int, newText: String): Boolean {
-    return try {
-        transaction {
-            PostComments.update({
-                PostComments.id eq commentId and (PostComments.userId eq userId)
-            }) {
-                it[commentText] = newText
-            }
-        } > 0
-    } catch (e: Exception) {
-        e.printStackTrace()
-        false
-    }
-}
-
-fun deleteComment(commentId: Int, userId: Int): Boolean {
-    return try {
-        transaction {
-            // First delete replies
-            PostComments.deleteWhere {
-                parentCommentId eq commentId
-            }
-            // Then delete main comment
-            PostComments.deleteWhere {
-                PostComments.id eq commentId and (PostComments.userId eq userId)
-            }
-        } > 0
-    } catch (e: Exception) {
-        e.printStackTrace()
-        false
-    }
-}
-
-
-fun getNestedCommentsByPost(postId: Int): List<NestedCommentResponse> {
-    val allComments = transaction {
-        PostComments.selectAll().where { PostComments.postId eq postId }
-            .orderBy(PostComments.createdAt to SortOrder.ASC)
-            .map {
-                NestedCommentResponse(
-                    commentId = it[PostComments.id],
-                    userId = it[PostComments.userId],
-                    commentText = it[PostComments.commentText],
-                    createdAt = it[PostComments.createdAt].toString("yyyy-MM-dd HH:mm:ss"),
-                    parentCommentId = it[PostComments.parentCommentId]
-                )
-            }
-    }
-
-    val commentMap = allComments.associateBy { it.commentId }.toMutableMap()
-    val rootComments = mutableListOf<NestedCommentResponse>()
-
-    allComments.forEach { comment ->
-        val parentId = comment.parentCommentId
-        if (parentId == null) {
-            rootComments.add(comment)
-        } else {
-            val parent = commentMap[parentId]
-            parent?.replies?.add(comment)
-        }
-    }
-
-    return rootComments
-}
 
 fun saveQuoteRepost(userId: Int, postId: Int, comment: String?): Boolean {
     return try {
@@ -249,7 +169,7 @@ fun saveQuoteRepost(userId: Int, postId: Int, comment: String?): Boolean {
                 it[PostReposts.userId] = userId
                 it[originalPostId] = postId
                 it[PostReposts.comment] = comment
-                it[repostedAt] = org.joda.time.DateTime.now()
+                it[repostedAt] = DateTime.now()
             }
             true
         }
@@ -301,7 +221,7 @@ fun addBookmark(postId: Int, userId: Int): Boolean {
         PostBookmarks.insert {
             it[PostBookmarks.postId] = postId
             it[PostBookmarks.userId] = userId
-            it[bookmarkedAt] = org.joda.time.DateTime.now()
+            it[bookmarkedAt] = DateTime.now()
         }
         true
     }
@@ -390,10 +310,10 @@ fun getPostMedia(postId: Int): List<PostMediaItem> = transaction {
             val filePath = it[PostMedia.filePath]
             val mediaType = it[PostMedia.mediaType]
             if(mediaType == "image"){
-                val absoluteUrl = "http://10.0.2.2:8080/feed_image/$filePath"
+                val absoluteUrl = "https://grub-hardy-actively.ngrok-free.app/feed_image/$filePath"
                 PostMediaItem(mediaType, absoluteUrl)
             }else{
-                val absoluteUrl = "http://10.0.2.2:8080/feed_video/$filePath"
+                val absoluteUrl = "https://grub-hardy-actively.ngrok-free.app/feed_video/$filePath"
                 PostMediaItem(mediaType, absoluteUrl)
             }
         }
@@ -519,10 +439,6 @@ fun getUserPosts(userId: Int, limit: Int = 20, offset: Long = 0L): List<FullPost
                 val content = row[Posts.textContent]
                 val createdAt = row[Posts.createdAt]
 
-                val hashtags = PostHashtags
-                    .selectAll().where { PostHashtags.postId eq postId }
-                    .map { it[PostHashtags.tag] }
-
                 val media = getPostMedia(postId)
                 val metrics = getPostMetrics(postId)
                 val userProfile = getUserProfileDetails(userId)
@@ -537,6 +453,37 @@ fun getUserPosts(userId: Int, limit: Int = 20, offset: Long = 0L): List<FullPost
                     authorFullName = "${userProfile?.firstName.orEmpty()} ${userProfile?.lastName.orEmpty()}",
                     authorProfilePictureUrl = userProfile?.profilePicturePath,
                     createdAt = createdAt.toString()
+                )
+            }
+    }
+}
+
+fun getPostReplies(postId: Int, limit: Int = 20, offset: Long = 0L): List<FullPostResponse> {
+    return transaction {
+        Posts
+            .selectAll().where { Posts.reply_to eq postId }
+            .orderBy(Posts.createdAt, SortOrder.ASC)
+            .limit(limit)
+            .offset(offset)
+            .map { row ->
+                val replyId = row[Posts.id].value
+                val content = row[Posts.textContent]
+                val createdAt = row[Posts.createdAt]
+                val userId = row[Posts.userId]
+
+                val metrics = getPostMetrics(replyId)
+                val userProfile = getUserProfileDetails(userId)
+
+                FullPostResponse(
+                    postId = replyId,
+                    postWriteup = content,
+                    media = emptyList(), // No media for replies
+                    metrics = metrics,
+                    authorId = userId,
+                    authorUsername = userProfile?.username ?: "",
+                    authorFullName = "${userProfile?.firstName.orEmpty()} ${userProfile?.lastName.orEmpty()}",
+                    authorProfilePictureUrl = userProfile?.profilePicturePath,
+                    createdAt = createdAt.toString("yyyy-MM-dd HH:mm:ss")
                 )
             }
     }

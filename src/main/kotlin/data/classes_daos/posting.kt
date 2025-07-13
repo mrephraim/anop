@@ -11,11 +11,10 @@ object Posts : IntIdTable("posts") {
     val userId = integer("user_id")
     val textContent = text("text_content")
     val type = integer("type") // 1 = Normal Post, 2 = Community Post
-
     val shareTo = integer("share_to").nullable() // Community ID if specifically shared to a community
     val shareAs = integer("share_as").nullable()
     val visibility = integer("visibility") // 1 = Everyone, 2 = Connections Only, 3 = Community Only
-
+    val reply_to = integer( "reply_to")
     val createdAt = datetime("created_at")
 }
 
@@ -50,17 +49,6 @@ object PostLikes : Table("post_likes") {
     override val primaryKey = PrimaryKey(id)
 }
 
-object PostComments : Table("post_comments") {
-    val id = integer("id").autoIncrement()
-    val postId = reference("post_id", Posts)
-    val userId = integer("user_id") references UserInitials.id
-    val commentText = text("comment_text")
-    val parentCommentId = integer("parent_comment_id").nullable() // null = top-level comment
-    val createdAt = datetime("created_at")
-    override val primaryKey = PrimaryKey(id)
-}
-
-
 
 object PostReposts : Table("post_reposts") {
     val id = integer("id").autoIncrement()
@@ -70,7 +58,6 @@ object PostReposts : Table("post_reposts") {
     val repostedAt = datetime("reposted_at")
     override val primaryKey = PrimaryKey(id)
 }
-
 
 
 object PostViews : Table("post_views") {
@@ -144,22 +131,6 @@ data class AddCommentRequest(
     val commentText: String,
     val parentCommentId: Int? = null
 )
-
-@Serializable
-data class CommentResponse(
-    val commentId: Int,
-    val userId: Int,
-    val commentText: String,
-    val createdAt: String,
-    val parentCommentId: Int? = null
-)
-
-@Serializable
-data class CommentsListResponse(
-    val status: String,
-    val comments: List<CommentResponse>
-)
-
 @Serializable
 data class BasicResponse(val status: String, val message: String)
 

@@ -138,6 +138,9 @@ data class UserCommunityListRequest(val userId: Int)
 data class SuggestedCommunity(val communityId: Int, val name: String, val score: Double)
 
 @Serializable
+data class SuggestedCommunity2(val communityId: Int, val name: String, val category: String, val coverImage: String, val score: Double)
+
+@Serializable
 data class SuggestCommunityRequest(
     val userId: Int,
     val limit: Int = 10

@@ -22,21 +22,6 @@ fun updateMessageStatus(messageId: Int, status: MessageStatus) = transaction {
     }
 }
 
-fun updateOnlineStatus(userId: Int, isOnline: Boolean) = transaction {
-    val exists = OnlineStatus.selectAll().where { OnlineStatus.id eq userId }.any()
-    if (exists) {
-        OnlineStatus.update({ OnlineStatus.id eq userId }) {
-            it[OnlineStatus.isOnline] = isOnline
-            it[lastSeen] = Clock.System.now()
-        }
-    } else {
-        OnlineStatus.insert {
-            it[id] = userId
-            it[OnlineStatus.isOnline] = isOnline
-            it[lastSeen] = Clock.System.now()
-        }
-    }
-}
 
 
 fun sanitizeContent(input: String): String {

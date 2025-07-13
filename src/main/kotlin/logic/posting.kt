@@ -129,57 +129,6 @@ fun Route.postRoutes(){
         }
     }
 
-    post("/addComment") {
-        val request = call.receive<AddCommentRequest>()
-        val success = addPostComment(request.postId, request.userId, request.commentText, request.parentCommentId)
-        if (success) call.respond(HttpStatusCode.OK, BasicResponse("success", "Comment added"))
-        else call.respond(HttpStatusCode.InternalServerError, BasicResponse("error", "Failed to add comment"))
-    }
-
-    get("/getComments/{postId}") {
-        val postId = call.parameters["postId"]?.toIntOrNull()
-        if (postId == null) {
-            call.respond(HttpStatusCode.BadRequest, BasicResponse("error", "Invalid post ID"))
-            return@get
-        }
-
-        val comments = getCommentsByPost(postId)
-        call.respond(HttpStatusCode.OK, CommentsListResponse("success", comments))
-    }
-
-    post("/editComment") {
-        val request = call.receive<EditCommentRequest>()
-        val success = editComment(request.commentId, request.userId, request.newText)
-        if (success) call.respond(HttpStatusCode.OK, BasicResponse("success", "Comment edited"))
-        else call.respond(HttpStatusCode.InternalServerError, BasicResponse("error", "Failed to edit comment"))
-    }
-
-    post("/editComment") {
-        val request = call.receive<EditCommentRequest>()
-        val success = editComment(request.commentId, request.userId, request.newText)
-        if (success) call.respond(HttpStatusCode.OK, BasicResponse("success", "Comment edited"))
-        else call.respond(HttpStatusCode.InternalServerError, BasicResponse("error", "Failed to edit comment"))
-    }
-
-    post("/deleteComment") {
-        val request = call.receive<DeleteCommentRequest>()
-        val success = deleteComment(request.commentId, request.userId)
-        if (success) call.respond(HttpStatusCode.OK, BasicResponse("success", "Comment deleted"))
-        else call.respond(HttpStatusCode.InternalServerError, BasicResponse("error", "Failed to delete comment"))
-    }
-
-
-    get("/getNestedComments/{postId}") {
-        val postId = call.parameters["postId"]?.toIntOrNull()
-        if (postId == null) {
-            call.respond(HttpStatusCode.BadRequest, BasicResponse("error", "Invalid post ID"))
-            return@get
-        }
-
-        val comments = getNestedCommentsByPost(postId)
-        call.respond(HttpStatusCode.OK, NestedCommentsListResponse("success", comments))
-    }
-
     post("/quote-repost") {
         val request = try {
             call.receive<QuoteRepostRequest>()
@@ -290,6 +239,21 @@ fun Route.postRoutes(){
 
         val posts = getUserPosts(userId, limit = limit, offset = offset)
         call.respond(HttpStatusCode.OK, posts)
+    }
+
+    get("/getReplies/{postId}") {
+        val postId = call.parameters["postId"]?.toIntOrNull()
+        val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 0
+        val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
+        val offset = ((page - 1) * limit).toLong()
+
+        if (postId == null) {
+            call.respond(HttpStatusCode.BadRequest, BasicResponse("error", "Invalid post ID"))
+            return@get
+        }
+
+        val replies = getPostReplies(postId, limit, offset)
+        call.respond(HttpStatusCode.OK,  replies)
     }
 
 

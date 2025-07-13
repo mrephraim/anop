@@ -16,8 +16,15 @@ plugins {
 group = "com.example"
 version = "0.0.1"
 
+//application {
+//    mainClass.set("com.example.ApplicationKt")
+//}
+
 application {
-    mainClass.set("com.example.ApplicationKt")
+    mainClass = "io.ktor.server.netty.EngineMain"
+
+    val isDevelopment: Boolean = project.ext.has("development")
+    applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
 }
 
 repositories {
@@ -45,5 +52,8 @@ dependencies {
     implementation("com.sun.mail:jakarta.mail:2.0.1")
     implementation("com.sun.activation:jakarta.activation:2.0.1")
     implementation("org.jetbrains.exposed:exposed-jodatime:0.61.0")
+    implementation("io.lettuce:lettuce-core:6.2.6.RELEASE")
+    implementation("com.redis:lettucemod:3.6.3")
+
 
 }
