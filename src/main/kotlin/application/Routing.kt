@@ -20,5 +20,6 @@ fun Application.internalRoute(){
         communityRoutes()
         chatWebSocketRoute()
         postRoutes()
+        reactionWebSocketRoute()
     }
 }

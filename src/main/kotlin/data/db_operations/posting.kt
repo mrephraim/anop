@@ -1,7 +1,10 @@
 package com.example.data.db_operations
 
+import com.example.application.RedisProvider
 import com.example.data.classes_daos.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNull
@@ -121,6 +124,19 @@ fun addPostLike(postId: Int, userId: Int): Boolean {
                     it[PostLikes.userId] = userId
                     it[PostLikes.createdAt] = DateTime.now()
                 }
+                val metrics = getPostMetrics(postId)
+                // Prepare JSON payload
+                val jsonPayload = buildJsonObject {
+                    put("postId", postId)
+                    put("likes", metrics.likes)
+                    put("comments", metrics.comments)
+                    put("reposts", metrics.reposts)
+                    put("views", metrics.views)
+                }.toString()
+
+                // Publish to Redis
+                RedisProvider.commands.publish("post:$postId:reaction", jsonPayload)
+                println("📢 Published updated metrics to Redis for post $postId: $jsonPayload")
                 true
             } else {
                 false // Already liked
@@ -137,6 +153,19 @@ fun removePostLike(postId: Int, userId: Int): Boolean = try {
         val deleted = PostLikes.deleteWhere {
             (PostLikes.postId eq postId) and (PostLikes.userId eq userId)
         }
+        val metrics = getPostMetrics(postId)
+        // Prepare JSON payload
+        val jsonPayload = buildJsonObject {
+            put("postId", postId)
+            put("likes", metrics.likes)
+            put("comments", metrics.comments)
+            put("reposts", metrics.reposts)
+            put("views", metrics.views)
+        }.toString()
+
+        // Publish to Redis
+        RedisProvider.commands.publish("post:$postId:reaction", jsonPayload)
+        println("📢 Published updated metrics to Redis for post $postId: $jsonPayload")
         deleted > 0
     }
 } catch (e: Exception) {
@@ -150,6 +179,20 @@ fun removeRepost(userId: Int, postId: Int): Boolean = try {
         val deleted = PostReposts.deleteWhere {
             (PostReposts.userId eq userId) and (originalPostId eq postId) and (comment.isNull())
         }
+        val metrics = getPostMetrics(postId)
+        // Prepare JSON payload
+        val jsonPayload = buildJsonObject {
+            put("postId", postId)
+            put("likes", metrics.likes)
+            put("comments", metrics.comments)
+            put("reposts", metrics.reposts)
+            put("views", metrics.views)
+        }.toString()
+
+        // Publish to Redis
+        RedisProvider.commands.publish("post:$postId:reaction", jsonPayload)
+        println("📢 Published updated metrics to Redis for post $postId: $jsonPayload")
+
         deleted > 0
     }
 } catch (e: Exception) {
@@ -170,6 +213,19 @@ fun addPostComment(postId: Int, userId: Int, commentText: String): Boolean {
                 it[createdAt] = DateTime.now()
             }
         }
+        val metrics = getPostMetrics(postId)
+        // Prepare JSON payload
+        val jsonPayload = buildJsonObject {
+            put("postId", postId)
+            put("likes", metrics.likes)
+            put("comments", metrics.comments)
+            put("reposts", metrics.reposts)
+            put("views", metrics.views)
+        }.toString()
+
+        // Publish to Redis
+        RedisProvider.commands.publish("post:$postId:reaction", jsonPayload)
+        println("📢 Published updated metrics to Redis for post $postId: $jsonPayload")
         true
     } catch (e: Exception) {
         e.printStackTrace()
@@ -197,6 +253,18 @@ fun saveQuoteRepost(userId: Int, postId: Int, comment: String?): Boolean {
                 it[PostReposts.comment] = comment
                 it[repostedAt] = DateTime.now()
             }
+            val metrics = getPostMetrics(postId)
+            // Prepare JSON payload
+            val jsonPayload = buildJsonObject {
+                put("postId", postId)
+                put("likes", metrics.likes)
+                put("comments", metrics.comments)
+                put("reposts", metrics.reposts)
+                put("views", metrics.views)
+            }.toString()
+
+            // Publish to Redis
+            RedisProvider.commands.publish("post:$postId:reaction", jsonPayload)
             true
         }
     } catch (e: Exception) {
@@ -230,6 +298,18 @@ fun addPostView(postId: Int, userId: Int?): Boolean {
             it[PostViews.userId] = userId
             it[PostViews.viewedAt] = now
         }
+        val metrics = getPostMetrics(postId)
+        // Prepare JSON payload
+        val jsonPayload = buildJsonObject {
+            put("postId", postId)
+            put("likes", metrics.likes)
+            put("comments", metrics.comments)
+            put("reposts", metrics.reposts)
+            put("views", metrics.views)
+        }.toString()
+
+        // Publish to Redis
+        RedisProvider.commands.publish("post:$postId:reaction", jsonPayload)
         true
     }
 }
@@ -249,6 +329,18 @@ fun addBookmark(postId: Int, userId: Int): Boolean {
             it[PostBookmarks.userId] = userId
             it[bookmarkedAt] = DateTime.now()
         }
+        val metrics = getPostMetrics(postId)
+        // Prepare JSON payload
+        val jsonPayload = buildJsonObject {
+            put("postId", postId)
+            put("likes", metrics.likes)
+            put("comments", metrics.comments)
+            put("reposts", metrics.reposts)
+            put("views", metrics.views)
+        }.toString()
+
+        // Publish to Redis
+        RedisProvider.commands.publish("post:$postId:reaction", jsonPayload)
         true
     }
 }
@@ -258,6 +350,18 @@ fun removeBookmark(postId: Int, userId: Int): Boolean {
         val deletedRows = PostBookmarks.deleteWhere {
             (PostBookmarks.postId eq postId) and (PostBookmarks.userId eq userId)
         }
+        val metrics = getPostMetrics(postId)
+        // Prepare JSON payload
+        val jsonPayload = buildJsonObject {
+            put("postId", postId)
+            put("likes", metrics.likes)
+            put("comments", metrics.comments)
+            put("reposts", metrics.reposts)
+            put("views", metrics.views)
+        }.toString()
+
+        // Publish to Redis
+        RedisProvider.commands.publish("post:$postId:reaction", jsonPayload)
         deletedRows > 0
     }
 }
@@ -390,6 +494,7 @@ fun getRecommendedPosts(userId: Int, limit: Int = 30): List<FullPostResponse> {
     return scored.map { (post, _) ->
         val media = getPostMedia(post.id)
         val userProfile = getUserProfileDetails(post.authorId)
+        val interaction = getUserPostInteractions(userId, post.id)
 
         FullPostResponse(
             postId = post.id,
@@ -400,7 +505,33 @@ fun getRecommendedPosts(userId: Int, limit: Int = 30): List<FullPostResponse> {
             authorUsername = userProfile?.username ?: "",
             authorFullName = "${userProfile?.firstName.orEmpty()} ${userProfile?.lastName.orEmpty()}",
             authorProfilePictureUrl = userProfile?.profilePicturePath,
-            createdAt = post.createdAt.toString()
+            createdAt = post.createdAt.toString(),
+            isLiked = interaction.isLiked,
+            isReposted = interaction.isReposted,
+            isBookmarked = interaction.isBookmarked
+        )
+    }
+}
+
+
+fun getUserPostInteractions(userId: Int, postId: Int): InteractionStatus {
+    return transaction {
+        val liked = PostLikes
+            .selectAll().where{ (PostLikes.postId eq postId) and (PostLikes.userId eq userId) }
+            .any()
+
+        val reposted = PostReposts
+            .selectAll().where { (PostReposts.originalPostId eq postId) and (PostReposts.userId eq userId) }
+            .any()
+
+        val bookmarked = PostBookmarks
+            .selectAll().where { (PostBookmarks.postId eq postId) and (PostBookmarks.userId eq userId) }
+            .any()
+
+        InteractionStatus(
+            isLiked = liked,
+            isReposted = reposted,
+            isBookmarked = bookmarked
         )
     }
 }
@@ -409,6 +540,7 @@ fun getRecommendedPosts(userId: Int, limit: Int = 30): List<FullPostResponse> {
 fun getCommunityPosts(
     communityId: Int,
     offset: Long = 0,
+    userId: Int,
     limit: Int = 30
 ): List<FullPostResponse> {
     return transaction {
@@ -437,6 +569,7 @@ fun getCommunityPosts(
                         profilePictureUrl = userProfile?.profilePicturePath
                     )
                 }
+                val interaction = getUserPostInteractions(userId, postId)
 
                 FullPostResponse(
                     postId = postId,
@@ -447,7 +580,10 @@ fun getCommunityPosts(
                     authorUsername = authorInfo.username,
                     authorFullName = authorInfo.fullName,
                     authorProfilePictureUrl = authorInfo.profilePictureUrl,
-                    createdAt = postRow[Posts.createdAt].toString()
+                    createdAt = postRow[Posts.createdAt].toString(),
+                    isLiked = interaction.isLiked,
+                    isReposted = interaction.isReposted,
+                    isBookmarked = interaction.isBookmarked
                 )
             }
     }
@@ -468,6 +604,7 @@ fun getUserPosts(userId: Int, limit: Int = 20, offset: Long = 0L): List<FullPost
                 val media = getPostMedia(postId)
                 val metrics = getPostMetrics(postId)
                 val userProfile = getUserProfileDetails(userId)
+                val interaction = getUserPostInteractions(userId, postId)
 
                 FullPostResponse(
                     postId = postId,
@@ -478,7 +615,10 @@ fun getUserPosts(userId: Int, limit: Int = 20, offset: Long = 0L): List<FullPost
                     authorUsername = userProfile?.username ?: "",
                     authorFullName = "${userProfile?.firstName.orEmpty()} ${userProfile?.lastName.orEmpty()}",
                     authorProfilePictureUrl = userProfile?.profilePicturePath,
-                    createdAt = createdAt.toString()
+                    createdAt = createdAt.toString(),
+                    isLiked = interaction.isLiked,
+                    isReposted = interaction.isReposted,
+                    isBookmarked = interaction.isBookmarked
                 )
             }
     }
@@ -499,6 +639,7 @@ fun getPostReplies(postId: Int, limit: Int = 20, offset: Long = 0L): List<FullPo
 
                 val metrics = getPostMetrics(replyId)
                 val userProfile = getUserProfileDetails(userId)
+                val interaction = getUserPostInteractions(userId, postId)
 
                 FullPostResponse(
                     postId = replyId,
@@ -509,7 +650,10 @@ fun getPostReplies(postId: Int, limit: Int = 20, offset: Long = 0L): List<FullPo
                     authorUsername = userProfile?.username ?: "",
                     authorFullName = "${userProfile?.firstName.orEmpty()} ${userProfile?.lastName.orEmpty()}",
                     authorProfilePictureUrl = userProfile?.profilePicturePath,
-                    createdAt = createdAt.toString("yyyy-MM-dd HH:mm:ss")
+                    createdAt = createdAt.toString("yyyy-MM-dd HH:mm:ss"),
+                    isLiked = interaction.isLiked,
+                    isReposted = interaction.isReposted,
+                    isBookmarked = interaction.isBookmarked
                 )
             }
     }

@@ -1,6 +1,7 @@
 package com.example.data.classes_daos
 
 import com.example.data.models.UserInitials
+import kotlinx.serialization.SerialName
 import org.jetbrains.exposed.sql.Table
 import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.dao.id.IntIdTable
@@ -75,6 +76,13 @@ object PostBookmarks : Table("post_bookmarks") {
     val bookmarkedAt = datetime("bookmarked_at")
     override val primaryKey = PrimaryKey(id)
 }
+
+
+data class InteractionStatus(
+    val isLiked: Boolean = false,
+    val isReposted: Boolean = false,
+    val isBookmarked: Boolean = false
+)
 
 
 @Serializable
@@ -205,8 +213,12 @@ data class FullPostResponse(
     val authorUsername: String,
     val authorFullName: String,
     val authorProfilePictureUrl: String?,
-    val createdAt: String
+    val createdAt: String,
+    val isLiked: Boolean,
+    val isReposted: Boolean,
+    val isBookmarked: Boolean
 )
+
 
 data class AuthorInfo(
     val id: Int,
@@ -221,3 +233,37 @@ data class CommunityPostsRequest(
     val offset: Long = 0,
     val limit: Int = 30
 )
+
+@Serializable
+data class ReactionUpdate(
+    val postId: Int,
+    val type: ReactionType,
+    val count: Int,
+    val userId: Int
+)
+
+@Serializable
+enum class ReactionType {
+    LIKE, UNLIKE, REPOST, UNREPOST, BOOKMARK, UNBOOKMARK, COMMENT, VIEW
+}
+
+@Serializable
+sealed class IncomingReactionMessage {
+    @Serializable
+    @SerialName("reaction")
+    data class Reaction(val data: ReactionData) : IncomingReactionMessage()
+
+    @Serializable
+    @SerialName("bookmark")
+    data class Bookmark(val data: BookmarkData) : IncomingReactionMessage()
+}
+
+@Serializable
+data class ReactionData(val postId: Int, val userId: Int, val isLike: Boolean)
+
+@Serializable
+data class BookmarkData(val postId: Int, val userId: Int, val isBookmarked: Boolean)
+
+@Serializable
+data class StandardResponse(val status: String, val message: String)
+

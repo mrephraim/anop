@@ -124,8 +124,10 @@ fun Route.postRoutes(){
 
         if (success) {
             call.respond(HttpStatusCode.OK, LikePostResponse("success", "Post liked"))
+            println("Like Post Working")
         } else {
             call.respond(HttpStatusCode.OK, LikePostResponse("error", "Post already liked or failed"))
+            println("Like Post Not Working")
         }
     }
     post("/unlikePost") {
@@ -286,6 +288,28 @@ fun Route.postRoutes(){
         val replies = getPostReplies(postId, limit, offset)
         call.respond(HttpStatusCode.OK,  replies)
     }
+
+    post("/addPostComment") {
+        try {
+            val request = call.receive<AddCommentRequest>()
+
+            val success = addPostComment(
+                postId = request.postId,
+                userId = request.userId,
+                commentText = request.commentText
+            )
+
+            if (success) {
+                call.respond(HttpStatusCode.OK, StandardResponse("success", "Comment added successfully."))
+            } else {
+                call.respond(HttpStatusCode.BadRequest, StandardResponse("error", "Failed to add comment."))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            call.respond(HttpStatusCode.InternalServerError, StandardResponse("error", "Something went wrong."))
+        }
+    }
+
 
 
 
