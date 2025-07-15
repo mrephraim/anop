@@ -276,6 +276,7 @@ fun Route.postRoutes(){
 
     get("/getReplies/{postId}") {
         val postId = call.parameters["postId"]?.toIntOrNull()
+        val userId = call.parameters["userId"]?.toIntOrNull() ?: 0
         val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 0
         val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
         val offset = ((page - 1) * limit).toLong()
@@ -285,7 +286,7 @@ fun Route.postRoutes(){
             return@get
         }
 
-        val replies = getPostReplies(postId, limit, offset)
+        val replies = getPostReplies(postId, userId, limit, offset)
         call.respond(HttpStatusCode.OK,  replies)
     }
 

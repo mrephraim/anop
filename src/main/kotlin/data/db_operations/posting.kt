@@ -624,7 +624,7 @@ fun getUserPosts(userId: Int, limit: Int = 20, offset: Long = 0L): List<FullPost
     }
 }
 
-fun getPostReplies(postId: Int, limit: Int = 20, offset: Long = 0L): List<FullPostResponse> {
+fun getPostReplies(postId: Int, userId: Int,  limit: Int = 20, offset: Long = 0L): List<FullPostResponse> {
     return transaction {
         Posts
             .selectAll().where { Posts.reply_to eq postId }
@@ -635,10 +635,10 @@ fun getPostReplies(postId: Int, limit: Int = 20, offset: Long = 0L): List<FullPo
                 val replyId = row[Posts.id].value
                 val content = row[Posts.textContent]
                 val createdAt = row[Posts.createdAt]
-                val userId = row[Posts.userId]
+                val authorId = row[Posts.userId]
 
                 val metrics = getPostMetrics(replyId)
-                val userProfile = getUserProfileDetails(userId)
+                val userProfile = getUserProfileDetails(authorId)
                 val interaction = getUserPostInteractions(userId, postId)
 
                 FullPostResponse(
@@ -646,7 +646,7 @@ fun getPostReplies(postId: Int, limit: Int = 20, offset: Long = 0L): List<FullPo
                     postWriteup = content,
                     media = emptyList(), // No media for replies
                     metrics = metrics,
-                    authorId = userId,
+                    authorId = authorId,
                     authorUsername = userProfile?.username ?: "",
                     authorFullName = "${userProfile?.firstName.orEmpty()} ${userProfile?.lastName.orEmpty()}",
                     authorProfilePictureUrl = userProfile?.profilePicturePath,
@@ -658,5 +658,39 @@ fun getPostReplies(postId: Int, limit: Int = 20, offset: Long = 0L): List<FullPo
             }
     }
 }
+
+fun getFullPostResponse(postId: Int, userId: Int): FullPostResponse? {
+    return transaction {
+        val row = Posts
+            .selectAll().where{ Posts.id eq postId }
+            .limit(1)
+            .firstOrNull() ?: return@transaction null
+
+        val content = row[Posts.textContent]
+        val createdAt = row[Posts.createdAt]
+        val authorId = row[Posts.userId]
+
+        val metrics = getPostMetrics(postId)
+        val userProfile = getUserProfileDetails(authorId)
+        val interaction = getUserPostInteractions(userId, postId)
+
+        FullPostResponse(
+            postId = postId,
+            postWriteup = content,
+            media = getPostMedia(postId), // use your media function if applicable, or emptyList()
+            metrics = metrics,
+            authorId = authorId,
+            authorUsername = userProfile?.username ?: "",
+            authorFullName = "${userProfile?.firstName.orEmpty()} ${userProfile?.lastName.orEmpty()}",
+            authorProfilePictureUrl = userProfile?.profilePicturePath,
+            createdAt = createdAt.toString("yyyy-MM-dd HH:mm:ss"),
+            isLiked = interaction.isLiked,
+            isReposted = interaction.isReposted,
+            isBookmarked = interaction.isBookmarked
+        )
+    }
+}
+
+
 
 
