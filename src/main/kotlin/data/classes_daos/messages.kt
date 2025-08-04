@@ -36,6 +36,7 @@ data class ChatMessageResponse(
 
 @Serializable
 data class ChatMessagePayload(
+    val id: Int,
     val fromUserId: Int,
     val toUserId: Int,
     val content: String,

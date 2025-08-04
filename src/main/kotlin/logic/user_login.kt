@@ -12,7 +12,12 @@ import io.ktor.server.routing.*
 
 fun loginUser(usernameOrEmail: String, password: String, deviceInfo: DeviceInfo): LoginResult {
     val userId = isUserExists(usernameOrEmail) ?: return LoginResult(false, "User does not exist.")
-    val storedPassword = getUserPassword(userId) ?: return LoginResult(false, "Password not found.")
+    val storedPassword = getUserPassword(userId)
+
+    if (storedPassword.isNullOrBlank() || storedPassword == "null" || storedPassword == "") {
+        return LoginResult(false, "Please use reset password to set a new password to be able to login.")
+    }
+
 
     if (SecurityUtils.decryptPassword(storedPassword) != password) {
         return LoginResult(false, "Invalid password.")

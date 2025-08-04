@@ -134,6 +134,23 @@ object LoginSessions : Table() {
     override val primaryKey = PrimaryKey(id)
 }
 
+@Serializable
+data class GoogleLoginRequest(
+    val idToken: String,
+    val deviceInfo: DeviceInfo
+)
+
+@Serializable
+data class GoogleLoginResponse(
+    val success: Boolean,
+    val message: String,
+    val userId: Int? = null,
+    val userStatus: Int? = null,
+    val newUser: Int? = null,
+    val refreshToken: String? = null
+)
+
+
 
 
 

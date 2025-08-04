@@ -22,5 +22,6 @@ fun Application.internalRoute(){
         postRoutes()
         reactionWebSocketRoute()
         searchRoute()
+        notificationRoutes()
     }
 }

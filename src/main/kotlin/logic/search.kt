@@ -18,16 +18,14 @@ fun Route.searchRoute(){
         val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
 
         val userId = call.request.queryParameters["userId"]?.toIntOrNull()
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Missing userId for post search"))
 
         val results = when (type) {
             1 -> {
-                if (userId == null) {
-                    return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Missing userId for post search"))
-                }
                 searchPosts(q, userId, limit)
             }
-            2 -> searchUsers(q, limit)
-            3 -> searchCommunities(q, limit)
+            2 -> searchUsers(q, userId, limit)
+            3 -> searchCommunities(q, limit, userId)
             else -> return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid type"))
         }
 

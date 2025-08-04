@@ -27,7 +27,7 @@ object ProfilePictures : Table("profile_pictures") {
 
 // Enum for Gender
 enum class Gender {
-    MALE, FEMALE
+    MALE, FEMALE, NULL
 }
 
 data class UserProfile(
@@ -49,6 +49,17 @@ data class UserProfileRequest(
     val about: String?,
     val gender: Gender
 )
+
+@Serializable
+data class UpdateProfileRequest(
+    val userId: Int,
+    val firstName: String,
+    val lastName: String,
+    val username: String,
+    val shortBio: String?,
+    val about: String?
+)
+
 
 
 @Serializable

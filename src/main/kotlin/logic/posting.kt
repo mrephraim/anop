@@ -10,86 +10,208 @@ import io.ktor.server.response.*
 import io.ktor.utils.io.*
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.FileOutputStream
 import java.nio.file.Paths
 
 
 fun Route.postRoutes(){
-    post("/createPost") {
+
+    post("/uploadChunk") {
         val multipart = call.receiveMultipart()
-        var requestData: CreatePostRequest? = null
-        val imageBytesList = mutableListOf<Pair<ByteArray, String>>()
-        val videoBytesList = mutableListOf<Pair<ByteArray, String>>() // Multiple videos
+        var fileId: String? = null
+        var fileName: String? = null
+        var chunkIndex: Int? = null
+        var totalChunks: Int? = null
+        var type: String? = null
+        var retries: Int? = null
+        var chunkData: ByteArray? = null
 
         multipart.forEachPart { part ->
+            println("🔍 Received part: name=${part.name}, type=${part::class.simpleName}")
+
             when (part) {
-                is PartData.FormItem -> if (part.name == "data") {
-                    requestData = Json.decodeFromString<CreatePostRequest>(part.value)
-                }
-
-                is PartData.FileItem -> {
-                    val fileName = part.originalFileName ?: "file.bin"
-                    val bytes = part.provider().toByteArray()
-
-                    when {
-                        part.name?.startsWith("image") == true -> imageBytesList.add(bytes to fileName)
-                        part.name?.startsWith("video") == true -> videoBytesList.add(bytes to fileName)
+                is PartData.FormItem -> {
+                    println("📄 Form field: ${part.name} = ${part.value}")
+                    when (part.name) {
+                        "fileId" -> fileId = part.value
+                        "fileName" -> fileName = part.value
+                        "chunkIndex" -> chunkIndex = part.value.toIntOrNull()
+                        "totalChunks" -> totalChunks = part.value.toIntOrNull()
+                        "retries" -> retries = part.value.toIntOrNull()
+                        "type" -> type = part.value
                     }
                 }
 
-                else -> Unit
+                is PartData.FileItem -> {
+                    println("📁 File field: name=${part.name}, originalFileName=${part.originalFileName}")
+                    chunkData = part.provider().toByteArray()
+                }
+
+                else -> {
+                    println("⚠️ Unknown part type: ${part::class.simpleName}")
+                }
+            }
+
+            part.dispose()
+        }
+
+
+        if (fileId == null || fileName == null || chunkIndex == null || totalChunks == null || chunkData == null || type == null) {
+            call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Missing required fields"))
+            return@post
+        }
+
+
+
+        val folder = File("uploads/chunks/$fileId")
+        if (!folder.exists()) folder.mkdirs()
+
+
+        if (retries != null && retries!! >= 15) {
+            folder.deleteRecursively()
+            call.respond(HttpStatusCode.Gone, mapOf("error" to "Too many retries"))
+            return@post
+        }
+
+
+        val chunkFile = File(folder, "chunk_$chunkIndex")
+        chunkFile.writeBytes(chunkData!!)
+
+        call.respond(HttpStatusCode.OK, mapOf("status" to "chunk received"))
+    }
+
+    post("/finalizeUpload") {
+        val params = call.receiveParameters()
+        val fileId = params["fileId"]
+        val fileName = params["fileName"]
+        val totalChunks = params["totalChunks"]?.toIntOrNull()
+        val type = params["type"] // "image" or "video"
+
+        if (fileId == null || fileName == null || totalChunks == null || type == null) {
+            call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Missing parameters"))
+            return@post
+        }
+
+        val chunkDir = File("uploads/chunks/$fileId")
+        val outputDir = File("uploads/${type}s")
+        if (!outputDir.exists()) outputDir.mkdirs()
+
+        val outputFile = File(outputDir, "${fileId}_${fileName}")
+        FileOutputStream(outputFile).use { outputStream ->
+            for (i in 0 until totalChunks) {
+                val chunkFile = File(chunkDir, "chunk_$i")
+                if (!chunkFile.exists()) {
+                    call.respond(HttpStatusCode.Conflict, mapOf("error" to "Missing chunk $i"))
+                    return@post
+                }
+                outputStream.write(chunkFile.readBytes())
+            }
+        }
+
+        // Cleanup chunks
+        chunkDir.deleteRecursively()
+
+        call.respond(HttpStatusCode.OK, mapOf("status" to "upload complete", "path" to outputFile.name))
+    }
+
+    post("/createPost") {
+        val multipart = call.receiveMultipart()
+        var requestData: CreatePostRequest? = null
+        val imageFileNames = mutableListOf<String>()
+        val videoFileNames = mutableListOf<String>()
+
+        println("🔄 Receiving multipart data...")
+
+        multipart.forEachPart { part ->
+            when (part) {
+                is PartData.FormItem -> {
+                    println("📄 FormItem - name=${part.name}, value=${part.value}")
+                    when (part.name) {
+                        "data" -> {
+                            try {
+                                requestData = Json.decodeFromString<CreatePostRequest>(part.value)
+                                println("✅ Parsed CreatePostRequest: $requestData")
+                            } catch (e: Exception) {
+                                println("❌ Failed to parse CreatePostRequest: ${e.message}")
+                            }
+                        }
+                        "imageFile" -> {
+                            println("🖼️ Received image file name: ${part.value}")
+                            imageFileNames.add(part.value)
+                        }
+                        "videoFile" -> {
+                            println("🎥 Received video file name: ${part.value}")
+                            videoFileNames.add(part.value)
+                        }
+                    }
+                }
+                else -> println("⚠️ Skipped non-form item part: ${part::class.simpleName}")
             }
             part.dispose()
         }
 
         if (requestData == null) {
+            println("❌ Missing post data")
             call.respond(HttpStatusCode.BadRequest, CreatePostResponse("error", "Missing post data"))
             return@post
         }
 
         val uploadsPath = Paths.get("").toAbsolutePath().toString() + "/uploads"
+        println("📂 Uploads base path: $uploadsPath")
+
         val imagePaths = mutableListOf<String>()
         val videoPaths = mutableListOf<String>()
 
-        // Validate total image size
-        val totalImageSize = imageBytesList.sumOf { it.first.size.toLong() }
-        if (totalImageSize > 30 * 1024 * 1024) {
-            call.respond(HttpStatusCode.BadRequest, CreatePostResponse("error", "Images exceed 30MB limit"))
-            return@post
-        }
-
-        if (imageBytesList.size > 5) {
-            call.respond(HttpStatusCode.BadRequest, CreatePostResponse("error", "Maximum 5 images allowed"))
-            return@post
-        }
-
-        // Save images
-        imageBytesList.forEachIndexed { index, (bytes, name) ->
-            val folder = File("$uploadsPath/posts/images")
-            if (!folder.exists()) folder.mkdirs()
-            val uniqueName = "${requestData!!.shareAs}_${System.currentTimeMillis()}_${index}_$name"
-            val file = File(folder, uniqueName)
-            file.writeBytes(bytes)
-            imagePaths.add(uniqueName)
-        }
-
-        // Save videos
-        videoBytesList.forEachIndexed { index, (bytes, name) ->
-            if (bytes.size > 30 * 1024 * 1024) {
-                call.respond(HttpStatusCode.BadRequest, CreatePostResponse("error", "One of the videos exceeds 30MB limit"))
+        for ((index, name) in imageFileNames.withIndex()) {
+            val srcFile = File("$uploadsPath/images/$name")
+            println("🔍 Looking for image: ${srcFile.absolutePath}")
+            if (!srcFile.exists()) {
+                println("❌ Image file not found: $name")
+                call.respond(HttpStatusCode.BadRequest, CreatePostResponse("error", "Missing image file: $name"))
                 return@post
             }
 
-            val folder = File("$uploadsPath/posts/videos")
-            if (!folder.exists()) folder.mkdirs()
+            val dstFolder = File("$uploadsPath/posts/images")
+            if (!dstFolder.exists()) dstFolder.mkdirs()
+
             val uniqueName = "${requestData!!.shareAs}_${System.currentTimeMillis()}_${index}_$name"
-            val file = File(folder, uniqueName)
-            file.writeBytes(bytes)
-            videoPaths.add(uniqueName)
+            val dstFile = File(dstFolder, uniqueName)
+            srcFile.copyTo(dstFile, overwrite = true)
+            imagePaths.add(uniqueName)
+
+            println("✅ Moved image to: ${dstFile.absolutePath}")
+
+            srcFile.delete()
         }
 
-        // Use shareAs (user or community), type, shareTo, visibility
+        for ((index, name) in videoFileNames.withIndex()) {
+            val srcFile = File("$uploadsPath/videos/$name")
+            println("🔍 Looking for video: ${srcFile.absolutePath}")
+            if (!srcFile.exists()) {
+                println("❌ Video file not found: $name")
+                call.respond(HttpStatusCode.BadRequest, CreatePostResponse("error", "Missing video file: $name"))
+                return@post
+            }
+
+            val dstFolder = File("$uploadsPath/posts/videos")
+            if (!dstFolder.exists()) dstFolder.mkdirs()
+
+            val uniqueName = "${requestData!!.shareAs}_${System.currentTimeMillis()}_${index}_$name"
+            val dstFile = File(dstFolder, uniqueName)
+            srcFile.copyTo(dstFile, overwrite = true)
+            videoPaths.add(uniqueName)
+
+            println("✅ Moved video to: ${dstFile.absolutePath}")
+
+            srcFile.delete()
+        }
+
+        println("📥 Saving post with: shareAs=${requestData!!.shareAs}, type=${requestData!!.type}, shareTo=${requestData!!.shareTo}, visibility=${requestData!!.visibility}")
+        println("🖼️ Images: $imagePaths")
+        println("🎥 Videos: $videoPaths")
+
         val postId = savePost(
-            shareAsId = requestData!!.shareAs,            // 👈 Correct ID for user or community
+            shareAsId = requestData!!.shareAs,
             type = requestData!!.type,
             textContent = requestData!!.textContent,
             shareTo = requestData!!.shareTo,
@@ -99,11 +221,15 @@ fun Route.postRoutes(){
         )
 
         if (postId != null) {
+            println("✅ Post saved successfully with ID: $postId")
             call.respond(HttpStatusCode.OK, CreatePostResponse("success", "Post created"))
         } else {
+            println("❌ Failed to save post")
             call.respond(HttpStatusCode.InternalServerError, CreatePostResponse("error", "Failed to create post"))
         }
     }
+
+
 
 
     get("/postMetrics/{postId}") {
@@ -310,6 +436,19 @@ fun Route.postRoutes(){
             call.respond(HttpStatusCode.InternalServerError, StandardResponse("error", "Something went wrong."))
         }
     }
+
+    post("/bookmarks") {
+        try {
+            val request = call.receive<Map<String, Int>>()
+            val userId = request["userId"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+            val bookmarks = getBookmarkedPosts(userId)
+            call.respond(mapOf("bookmarks" to bookmarks))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            call.respond(HttpStatusCode.InternalServerError, "Failed to fetch bookmarks")
+        }
+    }
+
 
 
 

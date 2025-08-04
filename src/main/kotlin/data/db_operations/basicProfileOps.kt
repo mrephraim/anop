@@ -1,5 +1,7 @@
 package com.example.data.db_operations
 
+import com.example.data.classes_daos.CommunityMemberWithRelationship
+import com.example.data.classes_daos.CommunityMembers
 import com.example.data.models.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -20,6 +22,30 @@ fun saveProfilePictureToDb(userId: Int, filePath: String): Boolean {
         false
     }
 }
+
+fun getExistingProfilePictureFileName(userId: Int): String? {
+    return transaction {
+        ProfilePictures
+            .selectAll().where{ ProfilePictures.userId eq userId }
+            .mapNotNull { it[ProfilePictures.filePath] }
+            .singleOrNull()
+    }
+}
+
+fun deleteProfilePictureFromDb(userId: Int): Boolean {
+    return try {
+        transaction {
+            ProfilePictures.deleteWhere { ProfilePictures.userId eq userId }
+        }
+        true
+    } catch (e: Exception) {
+        e.printStackTrace()
+        false
+    }
+}
+
+
+
 fun insertUserProfile(userId: Int, userProfile: UserProfile): Int? {
     return transaction {
         // Check if the profile already exists by userId
@@ -46,6 +72,19 @@ fun insertUserProfile(userId: Int, userProfile: UserProfile): Int? {
         profileId
     }
 }
+
+fun updateUserProfile(profile: UpdateProfileRequest): Boolean {
+    return transaction {
+        val rowsAffected = BasicProfile.update({ BasicProfile.userId eq profile.userId }) {
+            it[firstName] = profile.firstName
+            it[lastName] = profile.lastName
+            it[shortBio] = profile.shortBio
+            it[about] = profile.about
+        }
+        rowsAffected > 0
+    }
+}
+
 
 fun updateUsername(userId: Int, username: String): Boolean {
     return transaction {
@@ -175,6 +214,8 @@ fun getUserProfileDetails2(userId: Int): UserProfileResult2? {
     }
 }
 
+
+
 fun getUserBasicProfile(userId: Int): BasicProfileResponse? = transaction {
     val profileRow = BasicProfile
         .selectAll().where { BasicProfile.userId eq userId }
@@ -195,5 +236,4 @@ fun getUserBasicProfile(userId: Int): BasicProfileResponse? = transaction {
         )
     }
 }
-
 

@@ -55,5 +55,9 @@ dependencies {
     implementation("io.lettuce:lettuce-core:6.2.6.RELEASE")
     implementation("com.redis:lettucemod:3.6.3")
 
+    implementation("com.google.api-client:google-api-client:2.5.0")
+    implementation("com.google.oauth-client:google-oauth-client:1.34.1")
+    implementation("com.google.http-client:google-http-client-jackson2:1.47.0")
+
 
 }

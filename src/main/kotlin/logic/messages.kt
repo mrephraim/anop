@@ -6,6 +6,7 @@ import com.example.data.classes_daos.IncomingWebSocketMessage
 import com.example.data.classes_daos.MessageStatus
 import com.example.data.classes_daos.chatSerializersModule
 import com.example.data.db_operations.getAllMessagesForUser
+import com.example.data.db_operations.getMessagesAfterMessageId
 import com.example.data.db_operations.insertMessage
 import com.example.data.db_operations.updateMessageStatus
 import io.ktor.http.*
@@ -55,9 +56,14 @@ fun Route.chatWebSocketRoute() {
                             val msg = parsed.data
                             val messageId = insertMessage(msg)
 
+                            val msgWithId = msg.copy(id = messageId)
+
+                            // Create a new parsed message with updated data
+                            val updatedParsed = IncomingWebSocketMessage.Chat(data = msgWithId)
+
 
                             val channel = "chat:user:${msg.toUserId}"
-                            val encoded = json.encodeToString(IncomingWebSocketMessage.serializer(), parsed)
+                            val encoded = json.encodeToString(IncomingWebSocketMessage.serializer(), updatedParsed)
                             RedisProvider.commands.publish(channel, encoded)
 
                             updateMessageStatus(messageId, MessageStatus.SENT)
@@ -155,6 +161,24 @@ fun Route.chatWebSocketRoute() {
             "relativePath" to "/uploads/messaging/${if (mediaType == "IMAGE") "images" else "videos"}/$uniqueName"
         ))
     }
+
+    get("/getMessagesSince") {
+        val userId = call.request.queryParameters["userId"]?.toIntOrNull()
+        val lastMessageId = call.request.queryParameters["lastMessageId"]?.toIntOrNull()
+
+        if (userId == null || lastMessageId == null) {
+            call.respond(HttpStatusCode.BadRequest, "Missing parameters")
+            return@get
+        }
+
+        try {
+            val messages = getMessagesAfterMessageId(userId, lastMessageId)
+            call.respond(messages)
+        } catch (e: Exception) {
+            call.respond(HttpStatusCode.InternalServerError, "Failed to fetch messages")
+        }
+    }
+
 
 }
 

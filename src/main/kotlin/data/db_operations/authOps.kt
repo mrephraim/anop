@@ -2,7 +2,13 @@ package com.example.data.db_operations
 
 
 import com.example.data.SecurityUtils
+import com.example.data.TokenUtils
 import com.example.data.models.*
+import com.example.logic.generateUniqueUsername
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
+import com.google.api.client.http.javanet.NetHttpTransport
+import com.google.api.client.json.gson.GsonFactory
 import kotlinx.datetime.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -225,6 +231,78 @@ fun getUserIdByEmail(email: String): Int? {
     }
 }
 
+
+suspend fun verifyGoogleTokenAndGetPayload(idToken: String): GoogleIdToken.Payload? {
+    val verifier = GoogleIdTokenVerifier.Builder(NetHttpTransport(), GsonFactory.getDefaultInstance())
+        .setAudience(listOf("279544573611-8ocrmoq84lth72a87bl6vs9245h3iush.apps.googleusercontent.com"))
+        .build()
+
+    return verifier.verify(idToken)?.payload
+}
+
+fun signupWithGoogle(payload: GoogleIdToken.Payload, idToken: String, deviceInfo: DeviceInfo): GoogleLoginResponse {
+    val email = payload.email ?: return GoogleLoginResponse(false, "Email not available.")
+
+    transaction {
+        if (UserInitials.selectAll().where{ UserInitials.email eq email }.count() > 0) {
+            return@transaction GoogleLoginResponse(false, "Email already registered. Please log in instead.")
+        }
+
+        val userId = transaction {
+            UserInitials.insert {
+                it[this.email] = email
+                it[this.passKey] = "null"
+                it[this.status] = 2
+                it[this.username] = generateUniqueUsername(email)
+            }.resultedValues?.firstOrNull()?.get(UserInitials.id)
+                ?: error("Failed to insert user or retrieve ID")
+        }
+
+
+        BasicProfile.insert {
+            it[this.userId] = userId
+            it[this.firstName] = payload["given_name"] as? String ?: ""
+            it[this.lastName] = payload["family_name"] as? String ?: ""
+            it[this.shortBio] = ""
+            it[this.about] = ""
+            it[this.gender] = Gender.NULL // or null if enum allows
+        }
+
+        val refreshToken = TokenUtils.generateSecureToken()
+        storeLoginSession(userId, deviceInfo.deviceId, refreshToken)
+
+        return@transaction GoogleLoginResponse(
+            success = true,
+            message = "Signup and login successful.",
+            userId = userId,
+            userStatus = 2,
+            newUser = 3,
+            refreshToken = refreshToken
+        )
+    }.let {
+        return it
+    }
+}
+
+fun loginWithGoogle(payload: GoogleIdToken.Payload, idToken: String, deviceInfo: DeviceInfo): GoogleLoginResponse {
+    val email = payload.email ?: return GoogleLoginResponse(false, "Email not available.")
+
+    val userId = transaction {
+        UserInitials.selectAll().where { UserInitials.email eq email }.singleOrNull()?.get(UserInitials.id)
+    } ?: return GoogleLoginResponse(false, "User not found. Please sign up.")
+
+    val refreshToken = TokenUtils.generateSecureToken()
+    storeLoginSession(userId, deviceInfo.deviceId, refreshToken)
+
+    return GoogleLoginResponse(
+        success = true,
+        message = "Login successful.",
+        userId = userId,
+        userStatus = 2,
+        newUser = 0,
+        refreshToken = refreshToken
+    )
+}
 
 
 

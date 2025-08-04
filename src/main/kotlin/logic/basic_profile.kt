@@ -120,6 +120,7 @@ fun Route.basicProfile(){
                 return@post
             }
 
+            val intUserId = userId!!.toInt()
             val uniqueCode = (100000..999999).random()
             val uniqueFileName = "${userId}_${uniqueCode}_$fileName"
 
@@ -130,12 +131,24 @@ fun Route.basicProfile(){
                 folder.mkdirs()
             }
 
-            val file = File(folder, uniqueFileName)
-            file.writeBytes(fileBytes!!)
-            println("✅ File saved: ${file.absolutePath}")
+            // 🗑️ Delete existing image (DB + File)
+            val oldFileName = getExistingProfilePictureFileName(intUserId)
+            if (oldFileName != null) {
+                val oldFile = File(folder, oldFileName)
+                if (oldFile.exists()) {
+                    println("🧹 Deleting old profile picture: ${oldFile.absolutePath}")
+                    oldFile.delete()
+                }
 
-            val success = saveProfilePictureToDb(userId!!.toInt(), uniqueFileName)
+                deleteProfilePictureFromDb(intUserId)
+            }
 
+            // 💾 Save new image
+            val newFile = File(folder, uniqueFileName)
+            newFile.writeBytes(fileBytes!!)
+            println("✅ File saved: ${newFile.absolutePath}")
+
+            val success = saveProfilePictureToDb(intUserId, uniqueFileName)
             if (success) {
                 call.respond(HttpStatusCode.OK, mapOf("status" to "success", "message" to "Profile picture uploaded"))
             } else {
@@ -147,6 +160,7 @@ fun Route.basicProfile(){
             call.respond(HttpStatusCode.InternalServerError, mapOf("status" to "error", "message" to "Upload failed"))
         }
     }
+
 
 
     delete("/delete_profile_picture/{userId}") {
@@ -240,6 +254,52 @@ fun Route.basicProfile(){
             call.respond(profile)
         }
     }
+
+    post("/edit_profile") {
+        try {
+            val request = call.receive<UpdateProfileRequest>()
+
+            val sanitizedProfile = request.copy(
+                firstName = request.firstName.trim(),
+                lastName = request.lastName.trim(),
+                shortBio = request.shortBio?.trim(),
+                about = request.about?.trim(),
+                username = request.username.trim()
+            )
+
+            // Update username
+            val usernameUpdated = updateUsername(sanitizedProfile.userId, sanitizedProfile.username)
+            if (!usernameUpdated) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    SetBasicProfileResponseResult("Failed to update username", "error")
+                )
+                return@post
+            }
+
+            // ✅ Update BasicProfile table
+            val updateResult = updateUserProfile(sanitizedProfile)
+
+            if (updateResult) {
+                call.respond(
+                    HttpStatusCode.OK,
+                    SetBasicProfileResponseResult("Profile updated successfully", "success")
+                )
+            } else {
+                call.respond(
+                    HttpStatusCode.NotModified,
+                    SetBasicProfileResponseResult("No changes made to profile", "error")
+                )
+            }
+
+        } catch (e: Exception) {
+            call.respond(
+                HttpStatusCode.InternalServerError,
+                SetBasicProfileResponseResult("Something went wrong, try again or contact support", "error")
+            )
+        }
+    }
+
 
 
 

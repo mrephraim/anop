@@ -3,6 +3,8 @@ package com.example.data.db_operations
 import com.example.data.classes_daos.*
 import kotlinx.datetime.Clock
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.greater
 import org.jetbrains.exposed.sql.transactions.transaction
 
 fun insertMessage(payload: ChatMessagePayload): Int = transaction {
@@ -45,3 +47,24 @@ fun getAllMessagesForUser(userId: Int): List<ChatMessageResponse> = transaction 
             )
         }
 }
+
+fun getMessagesAfterMessageId(userId: Int, lastMessageId: Int): List<ChatMessageResponse> = transaction {
+    Messages
+        .selectAll().where {
+            ((Messages.senderId eq userId) or (Messages.receiverId eq userId)) and
+                    (Messages.id greater lastMessageId)
+        }
+        .orderBy(Messages.id, SortOrder.ASC)
+        .map {
+            ChatMessageResponse(
+                id = it[Messages.id].value,
+                fromUserId = it[Messages.senderId],
+                toUserId = it[Messages.receiverId],
+                content = it[Messages.content],
+                mediaPath = it[Messages.mediaPath],
+                status = it[Messages.status].name,
+                timeStamp = it[Messages.timeStamp].toString()
+            )
+        }
+}
+

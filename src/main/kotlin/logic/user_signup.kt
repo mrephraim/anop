@@ -7,6 +7,9 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
 
 
 fun generateUniqueUsername(email: String): String {
@@ -185,6 +188,37 @@ fun Route.userAuth() {
 
         } catch (e: Exception) {
             call.respond(HttpStatusCode.BadRequest, "Invalid request: ${e.localizedMessage}")
+        }
+    }
+
+    post("/google-auth") {
+        try {
+            val request = call.receive<GoogleLoginRequest>()
+            val payload = verifyGoogleTokenAndGetPayload(request.idToken)
+
+            if (payload == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Invalid Google token."))
+                return@post
+            }
+
+            val exists = transaction {
+                UserInitials.selectAll().where { UserInitials.email eq (payload.email ?: "") }.count() > 0
+            }
+
+            val result = if (exists) {
+                loginWithGoogle(payload, request.idToken, request.deviceInfo)
+            } else {
+                signupWithGoogle(payload, request.idToken, request.deviceInfo)
+            }
+
+            if (result.success) {
+                call.respond(HttpStatusCode.OK, result)
+            } else {
+                call.respond(HttpStatusCode.BadRequest, result)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            call.respond(HttpStatusCode.InternalServerError, mapOf("message" to "Internal server error: ${e.message}"))
         }
     }
 

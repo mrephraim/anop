@@ -1,8 +1,12 @@
 package com.example.data.db_operations
 
 import com.example.data.classes_daos.*
+import com.example.data.models.BasicProfileResponse
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 
 fun createCommunity(
@@ -326,9 +330,10 @@ fun getAllUserCommunities(userId: Int): List<CommunityInfo2> = transaction {
 
 
 
-fun suggestCommunitiesForUser(userId: Int, limit: Int = 10): List<SuggestedCommunity> {
+fun suggestCommunitiesForUser(userId: Int, limit: Int = 10, offset: Int = 0): List<SuggestedCommunity> {
     val userInterests = getUserInterests(userId).interestIds.toSet()
     val recommendedUsers = recommendUsersByInterest(userId).map { it.userId }.toSet()
+    val mutualUserIds = getMutualFollowersBasicInfo(userId).map { it.userId }.toSet()
 
     val communityScores = mutableMapOf<Int, Double>()
 
@@ -341,67 +346,90 @@ fun suggestCommunitiesForUser(userId: Int, limit: Int = 10): List<SuggestedCommu
             val communityTags = Json.decodeFromString<List<Int>>(community[Communities.category_tags])
 
             // Skip if already a member
-            val membershipCheck = CommunityMembers.selectAll()
+            val isAlreadyMember = CommunityMembers.selectAll()
                 .where {
                     (CommunityMembers.communityId eq communityId) and
                             (CommunityMembers.userId eq userId) and
                             (CommunityMembers.status inList listOf(2, 3))
                 }.any()
-            if (membershipCheck) return@forEach
+            if (isAlreadyMember) return@forEach
+            if(userId == creatorId){
+                return@forEach
+            }
 
             var score = 0.0
 
-            // 1. Interest Match
+            // Interest match
             val tagMatches = communityTags.count { tag -> userInterests.contains(tag.hashCode()) }
-            val interestScore = tagMatches * 2.0
-            score += interestScore
+            score += tagMatches * 2.0
 
-            // 2. Mutuals in Community
+            // Community members
             val communityMembers = CommunityMembers.selectAll()
                 .where { (CommunityMembers.communityId eq communityId) and (CommunityMembers.status inList listOf(2, 3)) }
                 .map { it[CommunityMembers.userId] }
 
-            val mutuals = communityMembers.count {
-                isMutualRelationship(userId, it) || areYouFollowing(userId, it)
-            }
-            val mutualScore = mutuals * 1.5
-            score += mutualScore
+            // Mutuals & Following presence in community
+            val mutuals = communityMembers.count { isMutualRelationship(userId, it) || areYouFollowing(userId, it) }
+            score += mutuals * 1.5
 
-            // 3. Popularity Score
-            val popularityScore = kotlin.math.ln(communityMembers.size + 1.0)
-            score += popularityScore
+            // Popularity
+            score += kotlin.math.ln(communityMembers.size + 1.0)
 
-            // 4. Creator Connection
+            // Creator connection
             if (isMutualRelationship(userId, creatorId) || areYouFollowing(userId, creatorId)) {
                 score += 2.5
             }
 
-            // 5. Recommended User Overlap
+            // Recommended user overlap
             val overlapCount = communityMembers.count { recommendedUsers.contains(it) }
-            val recommendationScore = overlapCount * 1.2
-            score += recommendationScore
+            score += overlapCount * 1.2
 
             communityScores[communityId] = score
         }
     }
 
-    val topCommunityIds = communityScores.entries.sortedByDescending { it.value }.take(limit)
+    // ⬇️ APPLY PAGINATION ONLY HERE
+    val paginatedCommunityIds = communityScores.entries
+        .sortedByDescending { it.value }
+        .drop(offset)
+        .take(limit)
 
     return transaction {
-        topCommunityIds.mapNotNull { (id, score) ->
-            Communities.selectAll()
-                .where { Communities.id eq id }
-                .singleOrNull()
-                ?.let {
-                    SuggestedCommunity(
-                        communityId = it[Communities.id],
-                        name = it[Communities.name],
-                        score = score
-                    )
+        paginatedCommunityIds.mapNotNull { (communityId, score) ->
+            Communities.selectAll().where { Communities.id eq communityId }.singleOrNull()?.let { row ->
+                val communityTags = Json.decodeFromString<List<Int>>(row[Communities.category_tags])
+                val categoryName = communityTags.firstOrNull()?.let { tagId ->
+                    InterestCategoryTable.selectAll().where { InterestCategoryTable.id eq tagId }.singleOrNull()?.get(InterestCategoryTable.interest)
+                } ?: "General"
+
+                val communityMembers = CommunityMembers.selectAll()
+                    .where { (CommunityMembers.communityId eq communityId) and (CommunityMembers.status inList listOf(2, 3)) }
+                    .map { it[CommunityMembers.userId] }
+
+                val filteredMemberIds = communityMembers.filter {
+                    mutualUserIds.contains(it) ||
+                            mutualUserIds.any { mutual -> areYouFollowing(mutual, it) }
                 }
+
+                val profilePictures = filteredMemberIds.distinct().take(5).mapNotNull { memberId ->
+                    getUserProfileDetails(memberId)?.profilePicturePath
+                }
+
+                SuggestedCommunity(
+                    communityId = row[Communities.id],
+                    name = row[Communities.name],
+                    profilePicture = "https://grub-hardy-actively.ngrok-free.app/profile-picture/${row[Communities.profilePicturePath]}",
+                    coverPhoto = "https://grub-hardy-actively.ngrok-free.app/community_cover_photo/${row[Communities.coverPhotoPath]}",
+                    category = categoryName,
+                    memberProfilePictures = profilePictures,
+                    score = score
+                )
+            }
         }
     }
 }
+
+
 
 fun getCommunityInfoById(communityId: Int): CommunityInfo? = transaction {
     Communities
@@ -421,5 +449,133 @@ fun getCommunityInfoById(communityId: Int): CommunityInfo? = transaction {
             )
         }
 }
+
+
+fun getCommunityInfo(communityId: Int, userId: Int): CommunityInfoResponse? = transaction {
+    val community = Communities
+        .selectAll().where { Communities.id eq communityId }
+        .singleOrNull() ?: return@transaction null
+
+    val creatorId = community[Communities.creatorUserId]
+    val creatorProfile = getUserBasicProfile(creatorId)
+
+    val allMembers = CommunityMembers
+        .selectAll().where { CommunityMembers.communityId eq communityId }
+
+    val totalMembers = allMembers.count()
+
+    val adminIds = allMembers
+        .filter { it[CommunityMembers.status] == 3 } // Status 3 = Admin
+        .map { it[CommunityMembers.userId] }
+
+    val membershipRow = CommunityMembers
+        .selectAll()
+        .where {
+            (CommunityMembers.communityId eq communityId) and
+                    (CommunityMembers.userId eq userId)
+        }
+        .singleOrNull()
+
+    val membershipStatus = membershipRow?.get(CommunityMembers.status)
+
+    val admins = adminIds.mapNotNull { getUserBasicProfile(it) }
+
+    CommunityInfoResponse(
+        communityId = communityId,
+        name = community[Communities.name],
+        description = community[Communities.description],
+        rules = try {
+            Json.decodeFromString(
+                ListSerializer(String.serializer()),
+                community[Communities.rules]
+            )
+        } catch (e: Exception) {
+            emptyList()
+        },
+        coverPhotoUrl = community[Communities.coverPhotoPath]?.let {
+            "https://grub-hardy-actively.ngrok-free.app/community_cover_photo/$it"
+        },
+        profilePictureUrl = community[Communities.profilePicturePath]?.let {
+            "https://grub-hardy-actively.ngrok-free.app/community_profile_photo/$it"
+        },
+        createdAt = community[Communities.createdAt].toString(),
+        totalMembers = totalMembers.toInt(),
+        creator = creatorProfile ?: BasicProfileResponse(creatorId, "Unknown", null),
+        admins = admins,
+        membershipStatus = membershipStatus
+    )
+}
+
+fun exitCommunity(userId: Int, communityId: Int): BasicResponse {
+    return try {
+        transaction {
+            CommunityMembers.deleteWhere {
+                (CommunityMembers.userId eq userId) and
+                        (CommunityMembers.communityId eq communityId)
+            }
+        }
+        BasicResponse(status = "success", message = "Successfully exited community.")
+    } catch (e: Exception) {
+        BasicResponse(status = "error", message = e.message ?: "Unknown error")
+    }
+}
+
+
+
+fun reportCommunity(
+    reporterUserId: Int,
+    communityId: Int,
+    category: String,
+    details: String?
+): BasicResponse {
+    return try {
+        transaction {
+            CommunityReports.insert {
+                it[CommunityReports.reporterUserId] = reporterUserId
+                it[CommunityReports.communityId] = communityId
+                it[CommunityReports.category] = category
+                it[additionalDetails] = details
+            }
+        }
+        BasicResponse(status = "success", message = "Report submitted successfully.")
+    } catch (e: Exception) {
+        BasicResponse(status = "error", message = e.message ?: "Failed to report community.")
+    }
+}
+
+
+
+fun getCommunityMembersWithRelationship(
+    communityId: Int,
+    userId: Int
+): List<CommunityMemberWithRelationship> = transaction {
+    val memberRows = CommunityMembers
+        .selectAll()
+        .where {
+            (CommunityMembers.communityId eq communityId) and
+                    (CommunityMembers.status inList listOf(2, 3)) // Active or Admin
+        }.toList()
+
+    memberRows.mapNotNull { memberRow ->
+        val memberUserId = memberRow[CommunityMembers.userId]
+
+        if (memberUserId == userId) return@mapNotNull null // Exclude self
+
+        val basicProfile = getUserProfileDetails2(memberUserId) ?: return@mapNotNull null
+
+        CommunityMemberWithRelationship(
+            userId = memberUserId,
+            firstName = basicProfile.firstName,
+            lastName = basicProfile.lastName,
+            username = basicProfile.username,
+            profilePicturePath = basicProfile.profilePicturePath,
+            isFollowingYou = isFollowingYou(userId, memberUserId),
+            areYouFollowing = areYouFollowing(userId, memberUserId),
+            isMutual = isMutualRelationship(userId, memberUserId)
+        )
+    }
+}
+
+
 
 

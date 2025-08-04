@@ -136,7 +136,23 @@ fun addPostLike(postId: Int, userId: Int): Boolean {
 
                 // Publish to Redis
                 RedisProvider.commands.publish("post:$postId:reaction", jsonPayload)
+
                 println("📢 Published updated metrics to Redis for post $postId: $jsonPayload")
+                val postOwnerId = Posts.selectAll().where{ Posts.id eq postId }
+                    .limit(1)
+                    .map { it[Posts.userId] }
+                    .firstOrNull()
+                if (postOwnerId != null && postOwnerId != userId) {
+                    insertNotification(
+                        userId = postOwnerId,
+                        actorId = userId,
+                        type = "post_like",
+                        payload = NotificationPayload(
+                            postId = postId,
+                            customMessage = "Someone liked your post"
+                        )
+                    )
+                }
                 true
             } else {
                 false // Already liked
@@ -650,7 +666,7 @@ fun getPostReplies(postId: Int, userId: Int,  limit: Int = 20, offset: Long = 0L
                     authorUsername = userProfile?.username ?: "",
                     authorFullName = "${userProfile?.firstName.orEmpty()} ${userProfile?.lastName.orEmpty()}",
                     authorProfilePictureUrl = userProfile?.profilePicturePath,
-                    createdAt = createdAt.toString("yyyy-MM-dd HH:mm:ss"),
+                    createdAt = createdAt.toString(),
                     isLiked = interaction.isLiked,
                     isReposted = interaction.isReposted,
                     isBookmarked = interaction.isBookmarked
@@ -690,6 +706,42 @@ fun getFullPostResponse(postId: Int, userId: Int): FullPostResponse? {
         )
     }
 }
+
+fun getBookmarkedPosts(userId: Int, limit: Int = 20, offset: Long = 0L): List<FullPostResponse> {
+    return transaction {
+        (PostBookmarks innerJoin Posts)
+            .selectAll().where{ PostBookmarks.userId eq userId }
+            .orderBy(PostBookmarks.bookmarkedAt, SortOrder.DESC)
+            .limit(limit)
+            .offset(offset)
+            .map { row ->
+                val postId = row[Posts.id].value
+                val content = row[Posts.textContent]
+                val createdAt = row[Posts.createdAt]
+                val authorId = row[Posts.userId]
+
+                val metrics = getPostMetrics(postId)
+                val userProfile = getUserProfileDetails(authorId)
+                val interaction = getUserPostInteractions(userId, postId)
+
+                FullPostResponse(
+                    postId = postId,
+                    postWriteup = content,
+                    media = getPostMedia(postId), // Your existing function
+                    metrics = metrics,
+                    authorId = authorId,
+                    authorUsername = userProfile?.username ?: "",
+                    authorFullName = "${userProfile?.firstName.orEmpty()} ${userProfile?.lastName.orEmpty()}",
+                    authorProfilePictureUrl = userProfile?.profilePicturePath,
+                    createdAt = createdAt.toString(),
+                    isLiked = interaction.isLiked,
+                    isReposted = interaction.isReposted,
+                    isBookmarked = interaction.isBookmarked
+                )
+            }
+    }
+}
+
 
 
 

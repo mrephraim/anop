@@ -143,22 +143,20 @@ fun Route.communityRoutes(){
     post("/suggest-communities") {
         try {
             val request = call.receive<SuggestCommunityRequest>()
-            val suggestions = suggestCommunitiesForUser(request.userId, request.limit)
+            val suggestions = suggestCommunitiesForUser(
+                userId = request.userId,
+                limit = request.limit,
+                offset = request.offset // ✅ NEW
+            )
 
-            val results = transaction {
-                suggestions.mapNotNull { suggested ->
-                    getCommunityInfoById(suggested.communityId)?.let { info ->
-                        ScoredCommunity(community = info, score = suggested.score)
-                    }
-                }
-            }
-
-            call.respond(HttpStatusCode.OK, results)
+            call.respond(HttpStatusCode.OK, suggestions)
         } catch (e: Exception) {
             e.printStackTrace()
             call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Failed to fetch suggestions"))
         }
     }
+
+
 
     get("/community_profile_photo/{fileName}") {
         val fileName = call.parameters["fileName"] ?: return@get call.respond(HttpStatusCode.BadRequest)
@@ -181,7 +179,92 @@ fun Route.communityRoutes(){
             call.respond(HttpStatusCode.NotFound)
         }
     }
+    get("/community/info/{communityId}/{userId}") {
+        try {
+            val communityId = call.parameters["communityId"]?.toIntOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid community ID")
 
+            val userId = call.parameters["userId"]?.toIntOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid user ID")
 
+            val communityInfo = getCommunityInfo(communityId, userId)
+                ?: return@get call.respond(HttpStatusCode.NotFound, "Community not found")
+
+            call.respond(HttpStatusCode.OK, communityInfo)
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            call.respond(HttpStatusCode.InternalServerError, "An error occurred")
+        }
+    }
+
+    post("/community/exit") {
+        try {
+            val request = call.receive<ExitCommunityRequest>()
+            val result = exitCommunity(request.userId, request.communityId)
+            call.respond(HttpStatusCode.OK, result)
+        } catch (e: Exception) {
+            call.respond(HttpStatusCode.BadRequest, BasicResponse("error", e.message ?: "Bad Request"))
+        }
+    }
+
+    post("/community/report") {
+        try {
+            val request = call.receive<ReportCommunityRequest>()
+            val result = reportCommunity(
+                reporterUserId = request.reporterUserId,
+                communityId = request.communityId,
+                category = request.category,
+                details = request.details
+            )
+            call.respond(HttpStatusCode.OK, result)
+        } catch (e: Exception) {
+            call.respond(HttpStatusCode.BadRequest, BasicResponse("error", e.message ?: "Bad Request"))
+        }
+    }
+
+    get("/community/members") {
+        try {
+            val communityId = call.request.queryParameters["communityId"]?.toIntOrNull()
+            val userId = call.request.queryParameters["userId"]?.toIntOrNull()
+            val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
+            val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 20
+            val filter = call.request.queryParameters["filter"] // "mutual", "following", "followers", or null
+            val query = call.request.queryParameters["query"]?.lowercase()
+
+            if (communityId == null || userId == null) {
+                call.respond(HttpStatusCode.BadRequest, "Missing or invalid parameters")
+                return@get
+            }
+
+            val allMembers = getCommunityMembersWithRelationship(communityId, userId)
+
+            // Optional search filter by username
+            val searched = query?.let {
+                allMembers.filter {
+                    it.firstName.lowercase().contains(query) ||
+                            it.lastName.lowercase().contains(query) ||
+                            it.username.lowercase().contains(query)
+                }
+            } ?: allMembers
+
+            // Optional relationship filter
+            val filtered = when (filter) {
+                "mutual" -> searched.filter { it.isMutual }
+                "following" -> searched.filter { it.areYouFollowing }
+                "followers" -> searched.filter { it.isFollowingYou }
+                else -> searched
+            }
+
+            // Pagination
+            val fromIndex = ((page - 1) * limit).coerceAtLeast(0)
+            val toIndex = (fromIndex + limit).coerceAtMost(filtered.size)
+            val paginated = if (fromIndex < filtered.size) filtered.subList(fromIndex, toIndex) else emptyList()
+
+            call.respond(HttpStatusCode.OK, paginated)
+        } catch (e: Exception) {
+            call.respond(HttpStatusCode.InternalServerError, "Error: ${e.message}")
+        }
+    }
 
 }

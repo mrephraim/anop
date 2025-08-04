@@ -54,5 +54,7 @@ object DatabaseFactory {
         createTableIfNotExists(PostReposts)
         createTableIfNotExists(PostViews)
         createTableIfNotExists(PostBookmarks)
+        createTableIfNotExists(Notifications)
+        createTableIfNotExists(CommunityReports)
     }
 }
