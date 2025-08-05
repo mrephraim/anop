@@ -20,10 +20,10 @@ object DatabaseFactory {
 //        }
 
         val hikari = HikariConfig().apply {
-            jdbcUrl = "jdbc:postgresql://localhost:5432/anop-app-db"
+            jdbcUrl = System.getenv("DB_URL")
             driverClassName = "org.postgresql.Driver"
-            username = "postgres"
-            password = "12345678"
+            username = System.getenv("DB_USER")
+            password = System.getenv("DB_PASSWORD")
             maximumPoolSize = 10
             isAutoCommit = false
             transactionIsolation = "TRANSACTION_REPEATABLE_READ"

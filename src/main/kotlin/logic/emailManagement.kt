@@ -28,9 +28,8 @@ fun loadEmailTemplate(templateName: String, replacements: Map<String, String>): 
 
 
 fun getEmailCredentials(): Pair<String, String> {
-    val config = loadConfig()
-    val email = config.propertyOrNull("ktor.email.address")?.getString() ?: "DEFAULT_EMAIL"
-    val emailPassword = config.propertyOrNull("ktor.email.password")?.getString() ?: "DEFAULT_PASSWORD"
+    val email = System.getenv("EMAIL_ADDRESS") ?: "DEFAULT_EMAIL"
+    val emailPassword = System.getenv("EMAIL_PASSWORD") ?: "DEFAULT_PASSWORD"
     return email to emailPassword
 }
 
